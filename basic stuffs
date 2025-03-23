@@ -1,0 +1,17 @@
+#include <stdio.h>
+
+int main() {
+    int a;
+    char b;
+    float c;
+    
+    printf("tell me your age");
+    scanf_s("%d", &a);
+    printf("now tell me your favorite alphabet");
+    scanf_s(" %c", &b);
+    printf("now tell me your weight");
+    scanf_s("%f", &c);
+    printf("%d is your age and %c is your favorite alphabet and also %f is your weight!", a, b, c);
+
+    return 0;
+}
