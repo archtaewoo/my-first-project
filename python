@@ -1,0 +1,16 @@
+import openai
+
+# OpenAI API 키 설정
+openai.api_key = 'sk-proj-0OZ6GJxEmUn_3iPO309o9SKa6bKF5aNqSzSGrMMrjh4oQpjbD'
+
+# 텍스트 생성 요청
+response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",  # 모델 선택
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "OpenAI API를 이용한 예시 코드 작성법은?"}
+    ]
+)
+
+# 결과 출력
+print(response['choices'][0]['message']['content'])
