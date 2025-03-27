@@ -13,5 +13,7 @@ int main() {
     scanf_s("%f", &c);
     printf("%d is your age and %c is your favorite alphabet and also %f is your weight!", a, b, c);
 
+
+
     return 0;
 }
