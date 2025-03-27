@@ -1,0 +1,22 @@
+#include<stdio.h>
+
+int main() {
+    int a, b, c;
+    printf("커피 3500 \n케이크 5000 \n사시고자 하시는 물품을 선택하여 주세요 \n케이크면 1번을 커피면 2번을 눌러주세요: ");
+    scanf_s("%d", &a);  
+
+    if (a == 1) {
+        printf("구매하시고자 하시는 수량을 선택하여 주세요: ");
+        scanf_s("%d", &b); 
+        printf("예상금액은 %d 입니다.\n", b * 3500);
+    }
+    else if (a == 2) {  
+        printf("구매하시고자 하시는 수량을 선택하여 주세요: ");
+        scanf_s("%d", &c);  
+        printf("예상금액은 %d 입니다.\n", c * 5000);
+    }
+    else {
+        printf("잘못된 입력입니다.\n");
+    }
+    return 0;
+}
