@@ -1,0 +1,56 @@
+const mineflayer = require('mineflayer');
+const { pathfinder, Movements, goals: { GoalNear } } = require('mineflayer-pathfinder');
+const { Vec3 } = require('vec3');
+const { GoalBlock } = require('mineflayer-pathfinder').goals;
+const minecraftData = require('minecraft-data');
+
+const bot = mineflayer.createBot({
+  host: 'localhost',
+  port: 25565,
+  username: 'WoodWorkerBot'
+});
+
+bot.once('spawn', async () => {
+  const mcData = minecraftData(bot.version);
+  bot.loadPlugin(pathfinder);
+  const movements = new Movements(bot, mcData);
+  bot.pathfinder.setMovements(movements);
+
+  await chopWood();
+  await craftPlanks();
+  bot.chat('모든 작업 완료!');
+});
+
+async function chopWood() {
+  const logIds = ['oak_log', 'birch_log', 'spruce_log'].map(name => bot.registry.itemsByName[name].id);
+  const tree = bot.findBlock({
+    matching: block => logIds.includes(block.type),
+    maxDistance: 32
+  });
+
+  if (!tree) {
+    bot.chat('나무를 찾을 수 없습니다.');
+    return;
+  }
+
+  await bot.pathfinder.goto(new GoalNear(tree.position.x, tree.position.y, tree.position.z, 1));
+  await bot.dig(bot.blockAt(tree.position));
+  bot.chat('나무를 캤습니다.');
+}
+
+async function craftPlanks() {
+  const plankRecipe = bot.recipesFor(
+    bot.registry.itemsByName.oak_planks.id,
+    null,
+    1,
+    null
+  )[0];
+
+  if (!plankRecipe) {
+    bot.chat('나무판자 조합법을 찾을 수 없습니다.');
+    return;
+  }
+
+  await bot.craft(plankRecipe, 4, null);
+  bot.chat('나무판자를 만들었습니다.');
+}
