@@ -1,0 +1,225 @@
+const mineflayer = require('mineflayer')
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
+const pvp = require('mineflayer-pvp').plugin
+const collectBlock = require('mineflayer-collectblock').plugin
+const minecraftData = require('minecraft-data')
+const { Vec3 } = require('vec3')
+
+const bot = mineflayer.createBot({
+  host: 'localhost',
+  port: 25565,
+  username: 'GuardBot'
+})
+
+bot.loadPlugin(pathfinder)
+bot.loadPlugin(pvp)
+bot.loadPlugin(collectBlock)
+
+let guardPos = null
+let followPlayer = null
+let guardTargetPlayer = null
+let alreadyWarnedLowFood = false
+let isEating = false 
+let lastFoodLevel = 20
+let allowEating = false
+let alreadyWarnedNoWeapon = false
+let alreadyWarnedLowHealth = false
+bot.once('spawn', () => {
+  const mcData = minecraftData(bot.version)
+  const defaultMove = new Movements(bot, mcData)
+  bot.pathfinder.setMovements(defaultMove)
+
+  bot.chat('스폰 완료. 명령을 내려줘!')
+
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) return
+    const player = bot.players[username]?.entity
+    if (!player) {
+      bot.chat("너를 못 찾겠어.")
+      return
+    }
+
+    if (message === '따라와') {
+      bot.chat('따라갈게!')
+      followPlayer = player
+      bot.pathfinder.setGoal(new goals.GoalFollow(player, 1), true)
+    }
+
+
+    if (message === '여길 지켜') {
+      guardPos = player.position.clone()
+      bot.chat('이 지역을 지킬게.')
+      moveToGuardPos()
+    }
+
+    if (message === '날 지켜줘') {
+      guardTargetPlayer = player
+      bot.chat('너를 지켜줄게!')
+      bot.pathfinder.setGoal(new goals.GoalFollow(player, 1), true)
+    }
+    if (message === '상태 알려줘') {
+      const health = bot.health
+      const food = bot.food
+      const weapon = bot.inventory.slots[bot.getEquipmentDestSlot('hand')]?.name || '없음'
+      const armor = {
+        머리: bot.inventory.slots[bot.getEquipmentDestSlot('head')]?.name || '없음',
+        몸통: bot.inventory.slots[bot.getEquipmentDestSlot('torso')]?.name || '없음',
+        다리: bot.inventory.slots[bot.getEquipmentDestSlot('legs')]?.name || '없음',
+        발: bot.inventory.slots[bot.getEquipmentDestSlot('feet')]?.name || '없음',
+      }
+
+      bot.chat(`체력: ${health.toFixed(1)} / 20`)
+      bot.chat(`배고픔: ${food} / 20`)
+      bot.chat(`무기: ${weapon}`)
+      bot.chat(`방어구 - 머리: ${armor.머리}, 몸통: ${armor.몸통}, 다리: ${armor.다리}, 발: ${armor.발}`)
+    }
+    if (message === '멈춰') {
+      bot.chat('멈출게.')
+      followPlayer = null
+      guardPos = null
+      guardTargetPlayer = null
+      bot.pvp.stop()
+      bot.pathfinder.setGoal(null)
+      
+    }
+    if (message === '먹어') {
+      allowEating = true
+      bot.chat('응! 이제 배고프면 자동으로 먹을게.')
+    }
+  
+    if (message === '먹지마') {
+      allowEating = false
+      bot.chat('알았어, 더는 안 먹을게.')
+    }
+    
+  })
+
+
+
+  bot.on('physicsTick', async () => {
+  
+    // 🛡 전투 조건 제한
+    if (guardPos || guardTargetPlayer) {
+      const target = bot.nearestEntity(e =>
+        e.type === 'hostile' && e.position.distanceTo(bot.entity.position) < 16
+      )
+  
+      if (target && !isEating) {
+        const weapon = bot.inventory.items().find(i =>
+          i.name.includes('sword') || i.name.includes('axe')
+        )
+        if (weapon) {
+          await bot.equip(weapon, 'hand')
+          bot.pvp.attack(target)
+          alreadyWarnedNoWeapon = false // 무기 있음 → 경고 리셋
+        } else {
+          if (!alreadyWarnedNoWeapon) {
+            bot.chat('무기가 없어! 맨손으로 싸울게!')
+            alreadyWarnedNoWeapon = true
+          }
+          await bot.unequip('hand')
+          bot.pvp.attack(target) // 맨손이라도 싸우게 하려면 이 줄 유지
+        }
+      }
+    }
+  
+    // 🍽 경고 조건: 배고프거나, 체력이 낮은데 배고픔이 덜 찼을 때
+    const lowHealth = bot.health < 14  // 🎯 체력이 낮은 기준
+    const shouldAutoEat = lowHealth || allowEating
+    const foodItem = bot.inventory.items().find(i =>
+      i.name.includes('bread') || i.name.includes('apple') || i.name.includes('beef') || i.name.includes('porkchop')
+    )
+    if (lowHealth && !alreadyWarnedLowHealth && !isEating) {
+      bot.chat(`나 체력이 낮아... 체력 ${bot.health.toFixed(1)}야.`)
+      alreadyWarnedLowHealth = true
+    }
+    if (bot.health >= 14) {
+      alreadyWarnedLowHealth = false
+    }
+    // 🍽 자동 먹기 (체력 낮거나 먹기 허용 시)
+    if (shouldAutoEat && bot.food < 20 && foodItem && !isEating) {
+      try {
+        isEating = true
+        await bot.equip(foodItem, 'hand')
+        await bot.consume()
+        isEating = false
+    
+        // 여기서 먹은 후 이전보다 배고픔이 올랐을 때만 말해
+        if (bot.food > lastFoodLevel) {
+          bot.chat(`이제 배고픔 ${bot.food}까지 찼어`)
+          lastFoodLevel = bot.food
+        }
+    
+        if (!lowHealth) allowEating = false
+        alreadyWarnedLowFood = false
+      } catch {
+        bot.chat('먹으려다가 실패했어...')
+        isEating = false
+      }
+    }
+    
+    // ❗ 먹을 게 없을 때 경고
+    if (!shouldAutoEat && !lowHealth && bot.food < 14 && !alreadyWarnedLowFood && !isEating) {
+      bot.chat(`나 배고파... 배고픔 ${bot.food}이야.`)
+      alreadyWarnedLowFood = true
+    }
+
+    // 💬 자동 먹기 안 할 때는 말만 함
+    if (!shouldAutoEat && bot.food < 14 && !alreadyWarnedLowFood && !isEating) {
+      bot.chat(`나 배고파... 배고픔 ${bot.food}이야.`)
+      alreadyWarnedLowFood = true
+    }
+
+    // 🍗 회복되면 경고 리셋
+  
+    if (bot.food >= 20) {
+      alreadyWarnedLowFood = false
+      allowEating = false
+    }
+    
+
+}) 
+})// spawn 닫기
+function moveToGuardPos() {
+  if (guardPos) {
+    bot.pathfinder.setGoal(new goals.GoalBlock(
+      Math.floor(guardPos.x),
+      Math.floor(guardPos.y),
+      Math.floor(guardPos.z)
+    ))
+  }
+}
+bot.on('stoppedAttacking', () => {
+  if (guardTargetPlayer) {
+    bot.pathfinder.setGoal(new goals.GoalFollow(guardTargetPlayer, 1), true)
+    return
+  }
+
+  if (guardPos) {
+    moveToGuardPos()
+    return
+  }
+
+})
+
+bot.on('playerCollect', (collector, itemDrop) => {
+  if (collector.username !== bot.username) return
+
+  setTimeout(() => {
+    const armorSlots = {
+      head: ['helmet'],
+      torso: ['chestplate'],
+      legs: ['leggings'],
+      feet: ['boots']
+    }
+
+    for (const [slot, keywords] of Object.entries(armorSlots)) {
+      const item = bot.inventory.items().find(i =>
+        keywords.some(k => i.name.includes(k))
+      )
+      if (item) {
+        bot.equip(item, slot).catch(() => {})
+      }
+    }
+  }, 1000)
+}) // playerCollect 닫기
