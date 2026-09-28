@@ -28,6 +28,17 @@
 - Workspace.Studio와 Workspace.GrassCard 안에 SkinnedGrassRunner가 2개 있어 중복 실행되고,
   플레이 시 "SkinnedGrass:165 attempt to index nil with 'Position'"가 반복된다. (2번 작업에서 다룸)
 - 시스템 성능 예산: 워크스페이스 파트 총 8천 개 이하 유지, 상시 광원의 그림자(Shadows)는 최소로.
+- Studio에서 내보낸 스크립트는 CP949 + CRLF로 올 수 있다. UTF-8(LF)로 바꿔서 넣어야 한글이 안 깨진다.
+- Rojo 파일 이름: 서버 Script는 `*.server.luau`, LocalScript는 `*.client.luau`, 그 외 `*.luau`는 ModuleScript.
+  서비스 폴더(src/server 등) 바로 아래에 `init.luau`/`init.lua`를 두면 폴더가 ModuleScript가 되므로 금지.
+- 꾸미기 프롬프트 키는 C(게임패드 Y). E는 말 타기 프롬프트가 쓴다.
+
+## 말 리그 측정값 (forest.rbxl에서 추출, src/shared/HorseConfig.luau에 반영됨)
+- 말 5마리는 Workspace.Horses.Model 아래에 있고, 모두 마구간 칸에서 서쪽(-X)을 보고 서 있다. 칸 바닥 Y≈11.7.
+- 초코: 루트 HumanoidRootPart의 -Z가 앞. 안장(Saddle)과 고삐(Reins)는 관절 없이 떠 있어서 타기 시스템이 WeldConstraint로 붙인다.
+- 스킨드 4마리: 루트 RootPart의 -X가 앞, 루트는 뒷다리 쪽 지면 높이. 파트 8개는 Motor6D로 RootPart에 연결, 뼈 18개(이름 공통).
+- 모든 Motor6D의 C0/C1이 현재 파트 위치와 오차 0으로 일치한다. 그래서 루트만 Anchored로 두고 나머지를 풀어도 모양이 그대로다.
+- 마구간 칸 문(Stable.Doors)은 전부 CanCollide=false라 말이 서쪽으로 그냥 걸어 나갈 수 있다.
 
 ---
 
