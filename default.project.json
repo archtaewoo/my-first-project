@@ -1,0 +1,11 @@
+{
+  "name": "HealingForest",
+  "tree": {
+    "$className": "DataModel",
+    "ServerScriptService": { "$ignoreUnknownInstances": false, "$path": "src/server" },
+    "ReplicatedStorage": { "$ignoreUnknownInstances": true, "$path": "src/shared" },
+    "StarterPlayer": {
+      "StarterPlayerScripts": { "$ignoreUnknownInstances": false, "$path": "src/client" }
+    }
+  }
+}
