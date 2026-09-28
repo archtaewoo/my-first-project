@@ -38,7 +38,10 @@ type Ride = {
 	gallop: boolean,
 	walk: boolean,
 	jumpQueued: boolean,
-	jumpTimer: number,
+	vy: number,
+	airborne: boolean,
+	jumpCooldown: number,
+	debugStart: number?,
 	stuckTime: number,
 }
 
@@ -267,20 +270,38 @@ local function step(r: Ride, dt: number)
 	end
 	local centerY, frontY, backY = groundAt(0), groundAt(-2.8), groundAt(2.8)
 
+	-- 수직 속도는 측정값이 아니라 컨트롤러 상태 r.vy로 적분한다(측정값은 물리가 따라오기 전이라 늦다).
+	-- 상승 중(r.vy > 0)에는 접지 판정을 하지 않는다.
 	local originY = frame.Position.Y
-	local grounded = centerY ~= nil and originY - centerY <= HorseConfig.GroundSnap and r.jumpTimer <= 0
+	local grounded = r.vy <= 0 and centerY ~= nil and originY - centerY <= HorseConfig.GroundSnap
+	r.jumpCooldown = math.max(r.jumpCooldown - dt, 0)
 	local vy: number
-	if grounded and r.jumpQueued then
-		vy = HorseConfig.JumpVelocity
-		r.jumpTimer = 0.3
+	local forceVertical = false -- 불연속(도약/착지)에서는 힘 제한 때문에 늦지 않게 속도를 직접 넣는다
+	if grounded and r.jumpQueued and r.jumpCooldown <= 0 then
+		r.vy = HorseConfig.JumpVelocity
+		r.jumpCooldown = HorseConfig.JumpCooldown
 		grounded = false
+		vy = r.vy
+		forceVertical = true
+		if HorseConfig.Debug then
+			r.debugStart = os.clock()
+		end
 	elseif grounded and centerY then
+		if r.airborne then
+			forceVertical = true -- 착지 프레임: 남은 낙하 속도를 없앤다
+		end
+		r.vy = 0
 		vy = math.clamp((centerY - originY) * 12, -30, 40)
 	else
-		vy = math.max(velocity.Y - workspace.Gravity * dt, -150)
+		r.vy = math.max(r.vy - workspace.Gravity * dt, -150)
+		vy = r.vy
+		if centerY and r.vy < 0 and originY + r.vy * dt < centerY then
+			vy = (centerY - originY) / dt -- 다음 프레임에 지면 아래로 내려가지 않게 제한
+			forceVertical = true
+		end
 	end
+	r.airborne = not grounded
 	r.jumpQueued = false
-	r.jumpTimer = math.max(r.jumpTimer - dt, 0)
 
 	local maxPitch = math.rad(HorseConfig.MaxPitchDeg)
 	local targetPitch = 0
@@ -299,7 +320,22 @@ local function step(r: Ride, dt: number)
 	local mass = collider.AssemblyMass
 	linearVelocity.MaxAxesForce = Vector3.new(mass * 150, mass * (workspace.Gravity + 300), mass * 150)
 	linearVelocity.VectorVelocity = horizontal + Vector3.new(0, vy, 0)
+	if forceVertical then
+		collider.AssemblyLinearVelocity = Vector3.new(velocity.X, vy, velocity.Z)
+	end
 	align.CFrame = CFrame.Angles(0, r.yaw, 0) * CFrame.Angles(r.pitch, 0, 0)
+
+	local debugStart = r.debugStart
+	if debugStart then
+		local elapsed = os.clock() - debugStart
+		if elapsed > 1 then
+			r.debugStart = nil
+		else
+			print(("[HorseJump] t=%.3f r.vy=%.2f 측정vy=%.2f 명령vy=%.2f originY=%.2f groundY=%s grounded=%s"):format(
+				elapsed, r.vy, velocity.Y, vy, originY, if centerY then ("%.2f"):format(centerY) else "nil", tostring(grounded)
+			))
+		end
+	end
 
 	local name = tostring(r.horse:GetAttribute("HorseName") or "말")
 	r.gaitLabel.Text = name .. " · " .. gaitName(r.speed)
@@ -345,7 +381,10 @@ local function startRide(humanoid: Humanoid, seat: BasePart, horse: Model)
 		gallop = false,
 		walk = false,
 		jumpQueued = false,
-		jumpTimer = 0,
+		vy = 0,
+		airborne = false,
+		jumpCooldown = 0,
+		debugStart = nil,
 		stuckTime = 0,
 	}
 	ride = r

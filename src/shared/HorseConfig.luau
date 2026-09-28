@@ -17,6 +17,9 @@ export type RigSpec = {
 
 local HorseConfig = {}
 
+-- true면 점프 후 1초 동안 매 프레임 수직 상태를 클라이언트 출력에 찍는다
+HorseConfig.Debug = false
+
 HorseConfig.TAG = "CustomHorse"
 HorseConfig.REMOTE_NAME = "HorseRide"
 HorseConfig.SEAT_ATTRIBUTE = "HorseSeat" -- "Driver" | "Passenger"
@@ -36,7 +39,8 @@ HorseConfig.Speed = {
 }
 HorseConfig.TurnRateStand = math.rad(110)
 HorseConfig.TurnRateGallop = math.rad(55)
-HorseConfig.JumpVelocity = 32
+HorseConfig.JumpVelocity = 50 -- 높이 약 v²/2g = 6.4스터드, 체공 약 0.5초(Gravity 196.2 기준)
+HorseConfig.JumpCooldown = 0.8 -- 도약 후 다음 점프까지 최소 시간(초)
 HorseConfig.GroundSnap = 1.2 -- 지면에서 이 거리 안이면 "땅 위"로 본다
 HorseConfig.MaxSlopeDeg = 40
 HorseConfig.MaxPitchDeg = 25
