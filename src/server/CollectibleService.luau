@@ -115,8 +115,11 @@ local function setupCollectible(instance: Instance)
 		originalCanCollide[part] = part.CanCollide
 	end
 
-	local prompt = anchor:FindFirstChildOfClass("ProximityPrompt")
-	if not prompt then
+	local existingPrompt = anchor:FindFirstChildOfClass("ProximityPrompt") :: ProximityPrompt?
+	local prompt: ProximityPrompt
+	if existingPrompt then
+		prompt = existingPrompt
+	else
 		prompt = Instance.new("ProximityPrompt")
 		prompt.Parent = anchor
 	end

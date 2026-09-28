@@ -32,8 +32,7 @@ local KIND_LABEL: { [Types.ItemKind]: string } = {
 	Food = "음식",
 }
 
-local mainFrame: Frame? = nil
-local gridFrame: Frame? = nil
+local gridFrame: ScrollingFrame? = nil
 local screenGuiRef: ScreenGui? = nil
 local tabButtons: { [Types.ItemKind]: TextButton } = {}
 local cellCountLabels: { [string]: TextLabel } = {}
@@ -191,7 +190,7 @@ function CodexUI.Init(playerGui: PlayerGui)
 	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tabLayout.Parent = tabBar
 
-	for i, kind in KIND_ORDER do
+	for i, kind: Types.ItemKind in KIND_ORDER do
 		local button = Instance.new("TextButton")
 		button.Name = kind
 		button.LayoutOrder = i
@@ -230,7 +229,6 @@ function CodexUI.Init(playerGui: PlayerGui)
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = scroller
 
-	mainFrame = frame
 	gridFrame = scroller
 
 	-- 모바일 전용 토글 버튼
