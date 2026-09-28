@@ -321,7 +321,9 @@ local function step(r: Ride, dt: number)
 	linearVelocity.MaxAxesForce = Vector3.new(mass * 150, mass * (workspace.Gravity + 300), mass * 150)
 	linearVelocity.VectorVelocity = horizontal + Vector3.new(0, vy, 0)
 	if forceVertical then
-		collider.AssemblyLinearVelocity = Vector3.new(velocity.X, vy, velocity.Z)
+		-- horizontal은 이번 프레임 목표 속도다. 여기서 예전 velocity.X/Z를 쓰면 도약/착지 순간
+		-- 수평 속도가 지난 프레임 값으로 되돌아가 버린다.
+		collider.AssemblyLinearVelocity = horizontal + Vector3.new(0, vy, 0)
 	end
 	align.CFrame = CFrame.Angles(0, r.yaw, 0) * CFrame.Angles(r.pitch, 0, 0)
 

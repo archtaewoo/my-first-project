@@ -18,7 +18,8 @@ export type RigSpec = {
 local HorseConfig = {}
 
 -- true면 점프 후 1초 동안 매 프레임 수직 상태를 클라이언트 출력에 찍는다
-HorseConfig.Debug = false
+-- 점프 버그 진단 중이라 임시로 켜 둠. 문제 해결되면 false로.
+HorseConfig.Debug = true
 
 HorseConfig.TAG = "CustomHorse"
 HorseConfig.REMOTE_NAME = "HorseRide"
