@@ -300,9 +300,17 @@ end
 -- ===== FeatureTests 전용 (userId 기반, Player 인스턴스 불필요) =====
 
 PlayerData._Test = {
+	-- cache/memoryStore뿐 아니라 실제 DataStore에 남아있을 수 있는 이전 테스트 실행분까지 지운다.
+	-- 그렇지 않으면 (실제 DataStore가 연결된 세션에서) 이전에 성공한 테스트가 저장해 둔
+	-- "player_-1001" 레코드를 다음 실행이 그대로 읽어와 "초기 인벤토리가 비어있지 않다"로 실패한다.
 	Reset = function(userId: number)
 		cache[userId] = nil
 		memoryStore[userId] = nil
+		if dataStore then
+			pcall(function()
+				dataStore:RemoveAsync(keyFor(userId))
+			end)
+		end
 	end,
 	Load = function(userId: number): PlayerDataShape
 		return coreLoad(userId)

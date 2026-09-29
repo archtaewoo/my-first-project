@@ -62,4 +62,14 @@ function Remotes.Get(name: string): RemoteEvent
 	return remote
 end
 
+-- 서버 시작 시 한 번 호출해서 플레이어 접속 여부와 무관하게 즉시 RemoteEvent를 만들어 둔다.
+-- 이걸 호출하지 않으면 (예: 플레이어가 아직 없거나 PlayerData.Load가 아직 안 불린 시점에)
+-- 클라이언트의 WaitForChild가 영원히 끝나지 않는 "Infinite yield" 상태에 빠질 수 있다.
+function Remotes.EnsureAll()
+	if not RunService:IsServer() then
+		return
+	end
+	getOrCreateFolder()
+end
+
 return Remotes
