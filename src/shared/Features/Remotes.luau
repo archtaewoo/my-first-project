@@ -29,15 +29,18 @@ local function getOrCreateFolder(): Folder
 
 	if RunService:IsServer() then
 		local existing = features:FindFirstChild("Remotes")
+		local folder: Folder
 		if existing and existing:IsA("Folder") then
-			folderCache = existing
-			return existing
+			folder = existing
+		else
+			folder = Instance.new("Folder")
+			folder.Name = "Remotes"
+			folder.Parent = features
 		end
 
-		local folder = Instance.new("Folder")
-		folder.Name = "Remotes"
-		folder.Parent = features
-
+		-- 폴더를 새로 만들었든 이미 있던 걸 재사용하든, 빠진 RemoteEvent가 있으면
+		-- 항상 채워 넣는다. 이전에 빈 폴더만 만들어졌던 경우를 그냥 반환해버리면
+		-- InventorySync 등이 영원히 생기지 않아 클라이언트가 무한 대기에 빠진다.
 		for _, name in REMOTE_NAMES do
 			if not folder:FindFirstChild(name) then
 				local remote = Instance.new("RemoteEvent")
