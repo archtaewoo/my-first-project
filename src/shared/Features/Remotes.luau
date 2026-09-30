@@ -12,13 +12,18 @@
 --   FishingResult     : 낚시 성공/실패가 최종 확정됐을 때 (잡은 아이템 자체는 ItemAdded로 별도 안내)
 --   AffinityChanged   : 말 애정도 원값이 바뀔 때마다 보내는 델타
 --   HorseCareResult   : 먹이/물/빗질을 했을 때 말 이름·등급·등급 상승 여부를 담아 안내
+--   OpenCampfire      : 모닥불 프롬프트를 열 때 요리 가능한 레시피 목록을 실어 보낸다
+--   SleepMessage      : 같이 자기 진행 상황(기다리는 중/성사/취소) 안내 — 조사 처리가 필요 없는
+--                        고정 문장이라 서버가 완성된 문자열을 그대로 보낸다
 --
 -- RemoteFunction (클라이언트 -> 서버, 요청·응답)
 --   Purchase(shopId, listingId) -> (ok: boolean, message: string)
 --   Sell(itemId, quantity)      -> (ok: boolean, message: string, totalEarned: number)
 --   ReactToBite()               -> (accepted: boolean) — 입질 중에 눌렀는지 여부만 즉시 알려주고,
 --                                   실제 성공/실패는 FishingResult로 온다.
--- 전부 클라이언트가 보낸 값(가격·타이밍 등)은 신뢰하지 않고, 서버가 직접 검증/판정한다.
+--   Cook(recipeId)              -> (ok: boolean, reasonCode: string)
+--   Eat(itemId)                 -> (ok: boolean, reasonCode: string)
+-- 전부 클라이언트가 보낸 값(가격·재료·타이밍 등)은 신뢰하지 않고, 서버가 직접 검증/판정한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -34,8 +39,10 @@ local REMOTE_EVENT_NAMES = {
 	"FishingResult",
 	"AffinityChanged",
 	"HorseCareResult",
+	"OpenCampfire",
+	"SleepMessage",
 }
-local REMOTE_FUNCTION_NAMES = { "Purchase", "Sell", "ReactToBite" }
+local REMOTE_FUNCTION_NAMES = { "Purchase", "Sell", "ReactToBite", "Cook", "Eat" }
 
 -- 이 폴더 이름을 "Remotes"로 하면 안 된다 — 이 파일 자체가 Rojo에 의해
 -- ReplicatedStorage.Features.Remotes 라는 "Remotes"란 이름의 ModuleScript가 되므로,

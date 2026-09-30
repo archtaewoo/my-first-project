@@ -16,6 +16,7 @@ local CodexUI = require(script.Parent.UI.CodexUI)
 local ShopUI = require(script.Parent.UI.ShopUI)
 local CurrencyHud = require(script.Parent.UI.CurrencyHud)
 local FishingUI = require(script.Parent.UI.FishingUI)
+local CampfireUI = require(script.Parent.UI.CampfireUI)
 local SFX = require(script.Parent.SFX)
 
 local player = Players.LocalPlayer
@@ -70,6 +71,20 @@ local SELL_FAILURE_MESSAGE: { [string]: string } = {
 	sell_failed = "지금은 팔 수 없어요.",
 }
 
+local COOK_FAILURE_MESSAGE: { [string]: string } = {
+	invalid_request = "요청이 이상해요. 다시 시도해주세요.",
+	unknown_recipe = "그런 레시피는 없어요.",
+	missing_ingredients = "재료가 부족해요.",
+	cook_failed = "지금은 요리할 수 없어요.",
+}
+
+local EAT_FAILURE_MESSAGE: { [string]: string } = {
+	invalid_request = "요청이 이상해요. 다시 시도해주세요.",
+	not_food = "먹을 수 없는 물건이에요.",
+	not_enough_inventory = "가지고 있는 음식이 아니에요.",
+	eat_failed = "지금은 먹을 수 없어요.",
+}
+
 -- ===== UI 초기화 =====
 
 Toast.Init(playerGui)
@@ -121,6 +136,39 @@ FishingUI.Init(playerGui, {
 	OnReact = onFishingReact,
 })
 
+local cookFunction = Remotes.GetFunction("Cook")
+local eatFunction = Remotes.GetFunction("Eat")
+
+local function onCookClicked(recipeId: string)
+	local ok, reasonCode = cookFunction:InvokeServer(recipeId)
+	if ok then
+		SFX.Play("Purchase")
+		Toast.Show("맛있게 완성했어요!")
+		CampfireUI.RefreshAfterCook()
+	else
+		SFX.Play("PurchaseError")
+		local message = (type(reasonCode) == "string" and COOK_FAILURE_MESSAGE[reasonCode]) or "요리하지 못했어요."
+		Toast.Show(message, true)
+	end
+end
+
+local function onEatClicked(itemId: string)
+	local ok, reasonCode = eatFunction:InvokeServer(itemId)
+	if ok then
+		SFX.Play("Sell")
+		Toast.Show("든든해요! 발걸음이 조금 가벼워졌어요.")
+	else
+		SFX.Play("PurchaseError")
+		local message = (type(reasonCode) == "string" and EAT_FAILURE_MESSAGE[reasonCode]) or "먹지 못했어요."
+		Toast.Show(message, true)
+	end
+end
+
+CampfireUI.Init(playerGui, {
+	OnCook = onCookClicked,
+	OnEat = onEatClicked,
+})
+
 -- ===== 서버 이벤트 수신 =====
 
 local inventorySync = Remotes.Get("InventorySync")
@@ -133,6 +181,8 @@ local fishingBite = Remotes.GetEvent("FishingBite")
 local fishingResult = Remotes.GetEvent("FishingResult")
 local affinityChanged = Remotes.GetEvent("AffinityChanged")
 local horseCareResult = Remotes.GetEvent("HorseCareResult")
+local openCampfire = Remotes.GetEvent("OpenCampfire")
+local sleepMessage = Remotes.GetEvent("SleepMessage")
 
 inventorySync.OnClientEvent:Connect(function(payload: Types.InventorySyncPayload)
 	inventoryCache = payload.inventory
@@ -141,6 +191,7 @@ inventorySync.OnClientEvent:Connect(function(payload: Types.InventorySyncPayload
 	horseAffinityCache = payload.horseAffinity
 	CodexUI.SetData(inventoryCache, codexCache)
 	ShopUI.SetInventory(inventoryCache)
+	CampfireUI.SetInventory(inventoryCache)
 	CurrencyHud.Set(currencyCache[ACORN] or 0)
 	ShopUI.SetCurrency(currencyCache[ACORN] or 0)
 end)
@@ -149,6 +200,7 @@ inventoryDelta.OnClientEvent:Connect(function(payload: Types.InventoryDeltaPaylo
 	inventoryCache[payload.itemId] = payload.newCount
 	CodexUI.UpdateItem(payload.itemId, payload.newCount)
 	ShopUI.SetInventory(inventoryCache)
+	CampfireUI.SetInventory(inventoryCache)
 end)
 
 itemAdded.OnClientEvent:Connect(function(payload: Types.ItemAddedPayload)
@@ -171,8 +223,20 @@ end)
 
 openShop.OnClientEvent:Connect(function(payload: Types.OpenShopPayload)
 	CodexUI.SetOpen(false)
+	CampfireUI.Close()
 	SFX.Play("ShopOpen")
 	ShopUI.Open(payload)
+end)
+
+openCampfire.OnClientEvent:Connect(function(payload: Types.OpenCampfirePayload)
+	CodexUI.SetOpen(false)
+	ShopUI.Close()
+	SFX.Play("ShopOpen")
+	CampfireUI.Open(payload)
+end)
+
+sleepMessage.OnClientEvent:Connect(function(message: string)
+	Toast.Show(message)
 end)
 
 fishingCastStarted.OnClientEvent:Connect(function(payload: Types.FishingCastStartedPayload)
@@ -214,6 +278,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if input.KeyCode == Enum.KeyCode.B then
 		if ShopUI.IsOpen() then
 			ShopUI.Close()
+		end
+		if CampfireUI.IsOpen() then
+			CampfireUI.Close()
 		end
 		CodexUI.Toggle()
 	end

@@ -91,6 +91,25 @@ export type HorseCareResultPayload = {
 	tierUp: boolean,
 }
 
+export type RecipeIngredientView = {
+	itemId: string,
+	displayName: string,
+	needed: number,
+	owned: number,
+}
+
+export type RecipeListingView = {
+	id: string,
+	displayName: string,
+	description: string,
+	ingredients: { RecipeIngredientView },
+	craftable: boolean,
+}
+
+export type OpenCampfirePayload = {
+	recipes: { RecipeListingView },
+}
+
 export type InventoryDeltaPayload = {
 	itemId: string,
 	newCount: number,

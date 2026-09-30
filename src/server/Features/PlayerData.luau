@@ -235,6 +235,11 @@ local function coreHasItem(userId: number, itemId: string, amount: number): bool
 	return (data.inventory[itemId] or 0) >= amount
 end
 
+local function coreGetItemCount(userId: number, itemId: string): number
+	local data = coreLoad(userId)
+	return data.inventory[itemId] or 0
+end
+
 local function coreGetCurrency(userId: number, currencyId: string): number
 	local data = coreLoad(userId)
 	return data.currency[currencyId] or 0
@@ -361,6 +366,10 @@ end
 
 function PlayerData.HasItem(player: Player, itemId: string, amount: number?): boolean
 	return coreHasItem(player.UserId, itemId, amount or 1)
+end
+
+function PlayerData.GetItemCount(player: Player, itemId: string): number
+	return coreGetItemCount(player.UserId, itemId)
 end
 
 function PlayerData.GetSnapshot(player: Player): PlayerDataShape
