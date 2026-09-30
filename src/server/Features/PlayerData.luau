@@ -283,6 +283,21 @@ local function coreGrantUpgrade(userId: number, upgradeId: string): boolean
 	return true
 end
 
+local function coreGetHorseAffinity(userId: number, horseId: string): number
+	local data = coreLoad(userId)
+	return data.horseAffinity[horseId] or 0
+end
+
+local function coreAddHorseAffinity(userId: number, horseId: string, amount: number): (boolean, number)
+	if amount <= 0 then
+		return false, coreGetHorseAffinity(userId, horseId)
+	end
+	local data = coreLoad(userId)
+	local newAmount = (data.horseAffinity[horseId] or 0) + amount
+	data.horseAffinity[horseId] = newAmount
+	return true, newAmount
+end
+
 -- ===== 플레이어 대상 공개 API =====
 
 function PlayerData.Load(player: Player)
@@ -295,6 +310,7 @@ function PlayerData.Load(player: Player)
 		stats = data.stats,
 		currency = data.currency,
 		upgrades = data.upgrades,
+		horseAffinity = data.horseAffinity,
 	})
 end
 
@@ -391,6 +407,23 @@ end
 
 function PlayerData.GrantUpgrade(player: Player, upgradeId: string): boolean
 	return coreGrantUpgrade(player.UserId, upgradeId)
+end
+
+function PlayerData.GetHorseAffinity(player: Player, horseId: string): number
+	return coreGetHorseAffinity(player.UserId, horseId)
+end
+
+function PlayerData.AddHorseAffinity(player: Player, horseId: string, amount: number): (boolean, number)
+	local ok, newAmount = coreAddHorseAffinity(player.UserId, horseId, amount)
+	if not ok then
+		return false, newAmount
+	end
+	Remotes.Get("AffinityChanged"):FireClient(player, {
+		horseId = horseId,
+		newAmount = newAmount,
+		delta = amount,
+	})
+	return true, newAmount
 end
 
 function PlayerData.IsMemoryFallback(): boolean

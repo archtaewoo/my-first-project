@@ -10,6 +10,8 @@
 --   FishingCastStarted: 낚시를 시작했을 때(기다리는 중 문구용)
 --   FishingBite       : 입질이 왔을 때("지금이야!" 반응 신호)
 --   FishingResult     : 낚시 성공/실패가 최종 확정됐을 때 (잡은 아이템 자체는 ItemAdded로 별도 안내)
+--   AffinityChanged   : 말 애정도 원값이 바뀔 때마다 보내는 델타
+--   HorseCareResult   : 먹이/물/빗질을 했을 때 말 이름·등급·등급 상승 여부를 담아 안내
 --
 -- RemoteFunction (클라이언트 -> 서버, 요청·응답)
 --   Purchase(shopId, listingId) -> (ok: boolean, message: string)
@@ -30,6 +32,8 @@ local REMOTE_EVENT_NAMES = {
 	"FishingCastStarted",
 	"FishingBite",
 	"FishingResult",
+	"AffinityChanged",
+	"HorseCareResult",
 }
 local REMOTE_FUNCTION_NAMES = { "Purchase", "Sell", "ReactToBite" }
 

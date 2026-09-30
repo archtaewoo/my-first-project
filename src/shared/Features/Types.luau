@@ -41,6 +41,7 @@ export type InventorySyncPayload = {
 	stats: { [string]: number },
 	currency: { [string]: number },
 	upgrades: { [string]: boolean },
+	horseAffinity: { [string]: number },
 }
 
 export type CurrencyChangedPayload = {
@@ -73,6 +74,21 @@ export type FishingCastStartedPayload = {
 
 export type FishingResultPayload = {
 	success: boolean,
+}
+
+export type AffinityChangedPayload = {
+	horseId: string,
+	newAmount: number,
+	delta: number,
+}
+
+export type HorseCareResultPayload = {
+	horseId: string,
+	horseName: string,
+	careType: string,
+	newAmount: number,
+	tierLabel: string,
+	tierUp: boolean,
 }
 
 export type InventoryDeltaPayload = {

@@ -21,23 +21,33 @@ local SFX = require(script.Parent.SFX)
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
 
--- 한국어 받침에 맞춰 "을"/"를"을 고른다 (예: "버섯을", "꽃을").
-local function withEul(korean: string): string
+-- 한국어 마지막 글자에 받침이 있는지 본다 (조사 고르는 데 씀).
+local function hasBatchim(korean: string): boolean
 	local lastCharStart = utf8.offset(korean, -1)
 	if not lastCharStart then
-		return korean .. "를"
+		return false
 	end
 	local ok, codepoint = pcall(utf8.codepoint, korean, lastCharStart)
 	if not ok or codepoint < 0xAC00 or codepoint > 0xD7A3 then
-		return korean .. "를"
+		return false
 	end
-	local hasBatchim = (codepoint - 0xAC00) % 28 ~= 0
-	return korean .. (hasBatchim and "을" or "를")
+	return (codepoint - 0xAC00) % 28 ~= 0
+end
+
+-- "을"/"를" (예: "버섯을", "꽃을")
+local function withEul(korean: string): string
+	return korean .. (hasBatchim(korean) and "을" or "를")
+end
+
+-- "과"/"와" (예: "루비와", "설탕과") — 말 이름과 "가까워졌어요"를 이을 때 쓴다.
+local function withGwa(korean: string): string
+	return korean .. (hasBatchim(korean) and "과" or "와")
 end
 
 local inventoryCache: { [string]: number } = {}
 local codexCache: { [string]: any } = {}
 local currencyCache: { [string]: number } = {}
+local horseAffinityCache: { [string]: number } = {}
 
 local ACORN = ShopCatalog.CURRENCY_ACORN
 
@@ -121,11 +131,14 @@ local openShop = Remotes.GetEvent("OpenShop")
 local fishingCastStarted = Remotes.GetEvent("FishingCastStarted")
 local fishingBite = Remotes.GetEvent("FishingBite")
 local fishingResult = Remotes.GetEvent("FishingResult")
+local affinityChanged = Remotes.GetEvent("AffinityChanged")
+local horseCareResult = Remotes.GetEvent("HorseCareResult")
 
 inventorySync.OnClientEvent:Connect(function(payload: Types.InventorySyncPayload)
 	inventoryCache = payload.inventory
 	codexCache = payload.codex
 	currencyCache = payload.currency
+	horseAffinityCache = payload.horseAffinity
 	CodexUI.SetData(inventoryCache, codexCache)
 	ShopUI.SetInventory(inventoryCache)
 	CurrencyHud.Set(currencyCache[ACORN] or 0)
@@ -178,6 +191,18 @@ fishingResult.OnClientEvent:Connect(function(payload: Types.FishingResultPayload
 		SFX.Play("FishingMiss")
 	end
 	FishingUI.ShowResult(payload.success)
+end)
+
+affinityChanged.OnClientEvent:Connect(function(payload: Types.AffinityChangedPayload)
+	horseAffinityCache[payload.horseId] = payload.newAmount
+end)
+
+horseCareResult.OnClientEvent:Connect(function(payload: Types.HorseCareResultPayload)
+	SFX.Play("HorseCare")
+	Toast.Show(`{withGwa(payload.horseName)} 조금 더 가까워졌어요!`)
+	if payload.tierUp then
+		Toast.Show(`이제 "{payload.tierLabel}" 사이예요!`, true)
+	end
 end)
 
 -- ===== 입력 =====
