@@ -17,6 +17,7 @@ export type SfxName =
 	| "FishingCatch"
 	| "FishingMiss"
 	| "HorseCare"
+	| "QuestComplete"
 
 local SOUND_IDS: { [SfxName]: string } = {
 	ShopOpen = "",
@@ -28,6 +29,7 @@ local SOUND_IDS: { [SfxName]: string } = {
 	FishingCatch = "",
 	FishingMiss = "",
 	HorseCare = "",
+	QuestComplete = "",
 }
 
 local VOLUME: { [SfxName]: number } = {
@@ -40,6 +42,7 @@ local VOLUME: { [SfxName]: number } = {
 	FishingCatch = 0.6,
 	FishingMiss = 0.4,
 	HorseCare = 0.5,
+	QuestComplete = 0.6,
 }
 
 local SFX = {}

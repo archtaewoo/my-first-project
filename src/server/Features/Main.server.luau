@@ -1,7 +1,7 @@
 --!strict
 -- 서버 진입점. ModuleScript는 스스로 실행되지 않으므로 여기서 require 하고 Init()을 호출한다.
 -- 순서: Remotes(플레이어 접속과 무관하게 즉시 생성) -> PlayerData -> MarketService -> FishingService
---       -> HorseCareService -> DayNightService -> CampfireService -> SleepService
+--       -> HorseCareService -> DayNightService -> CampfireService -> SleepService -> QuestService
 --       -> CollectibleService -> FeatureTests
 
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("Remotes"))
@@ -12,6 +12,7 @@ local HorseCareService = require(script.Parent.HorseCareService)
 local DayNightService = require(script.Parent.DayNightService)
 local CampfireService = require(script.Parent.CampfireService)
 local SleepService = require(script.Parent.SleepService)
+local QuestService = require(script.Parent.QuestService)
 local CollectibleService = require(script.Parent.CollectibleService)
 local FeatureTests = require(script.Parent.FeatureTests)
 
@@ -27,6 +28,7 @@ HorseCareService.Init()
 DayNightService.Init()
 CampfireService.Init()
 SleepService.Init()
+QuestService.Init()
 CollectibleService.Init()
 FeatureTests.Init()
 

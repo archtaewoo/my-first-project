@@ -18,6 +18,7 @@ local CurrencyHud = require(script.Parent.UI.CurrencyHud)
 local FishingUI = require(script.Parent.UI.FishingUI)
 local CampfireUI = require(script.Parent.UI.CampfireUI)
 local TimeOfDayHud = require(script.Parent.UI.TimeOfDayHud)
+local QuestBoardUI = require(script.Parent.UI.QuestBoardUI)
 local SFX = require(script.Parent.SFX)
 
 local player = Players.LocalPlayer
@@ -171,6 +172,8 @@ CampfireUI.Init(playerGui, {
 	OnEat = onEatClicked,
 })
 
+QuestBoardUI.Init(playerGui)
+
 -- ===== 서버 이벤트 수신 =====
 
 local inventorySync = Remotes.Get("InventorySync")
@@ -185,6 +188,8 @@ local affinityChanged = Remotes.GetEvent("AffinityChanged")
 local horseCareResult = Remotes.GetEvent("HorseCareResult")
 local openCampfire = Remotes.GetEvent("OpenCampfire")
 local sleepMessage = Remotes.GetEvent("SleepMessage")
+local openQuestBoard = Remotes.GetEvent("OpenQuestBoard")
+local questProgress = Remotes.GetEvent("QuestProgress")
 
 inventorySync.OnClientEvent:Connect(function(payload: Types.InventorySyncPayload)
 	inventoryCache = payload.inventory
@@ -226,6 +231,7 @@ end)
 openShop.OnClientEvent:Connect(function(payload: Types.OpenShopPayload)
 	CodexUI.SetOpen(false)
 	CampfireUI.Close()
+	QuestBoardUI.Close()
 	SFX.Play("ShopOpen")
 	ShopUI.Open(payload)
 end)
@@ -233,8 +239,25 @@ end)
 openCampfire.OnClientEvent:Connect(function(payload: Types.OpenCampfirePayload)
 	CodexUI.SetOpen(false)
 	ShopUI.Close()
+	QuestBoardUI.Close()
 	SFX.Play("ShopOpen")
 	CampfireUI.Open(payload)
+end)
+
+openQuestBoard.OnClientEvent:Connect(function(payload: Types.OpenQuestBoardPayload)
+	CodexUI.SetOpen(false)
+	ShopUI.Close()
+	CampfireUI.Close()
+	SFX.Play("ShopOpen")
+	QuestBoardUI.Open(payload)
+end)
+
+questProgress.OnClientEvent:Connect(function(payload: Types.QuestProgressPayload)
+	QuestBoardUI.UpdateQuest(payload)
+	if payload.completed then
+		SFX.Play("QuestComplete")
+		Toast.Show(`퀘스트 완료: {payload.displayName}! 도토리 {payload.rewardAcorns}개를 받았어요.`)
+	end
 end)
 
 sleepMessage.OnClientEvent:Connect(function(message: string)
@@ -283,6 +306,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 		if CampfireUI.IsOpen() then
 			CampfireUI.Close()
+		end
+		if QuestBoardUI.IsOpen() then
+			QuestBoardUI.Close()
 		end
 		CodexUI.Toggle()
 	end

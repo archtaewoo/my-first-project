@@ -42,6 +42,7 @@ export type InventorySyncPayload = {
 	currency: { [string]: number },
 	upgrades: { [string]: boolean },
 	horseAffinity: { [string]: number },
+	quests: { [string]: QuestProgress },
 }
 
 export type CurrencyChangedPayload = {
@@ -108,6 +109,29 @@ export type RecipeListingView = {
 
 export type OpenCampfirePayload = {
 	recipes: { RecipeListingView },
+}
+
+export type QuestListingView = {
+	id: string,
+	displayName: string,
+	hint: string,
+	kindLabel: string, -- "방문" | "수집"
+	progress: number,
+	target: number,
+	completed: boolean,
+}
+
+export type OpenQuestBoardPayload = {
+	quests: { QuestListingView },
+}
+
+export type QuestProgressPayload = {
+	questId: string,
+	displayName: string,
+	progress: number,
+	target: number,
+	completed: boolean,
+	rewardAcorns: number,
 }
 
 export type InventoryDeltaPayload = {

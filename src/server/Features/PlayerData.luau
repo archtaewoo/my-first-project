@@ -23,6 +23,14 @@ local RETRY_BASE_DELAY = 1 -- 초, 매 시도마다 2배씩 늘어남
 
 local PlayerData = {}
 
+-- 아이템이 추가될 때마다 알림받고 싶은 다른 기능(퀘스트 등)이 등록해 두는 콜백 목록.
+-- AddItem 성공 직후 순서대로 호출된다.
+local itemAddedListeners: { (Player, string, number) -> () } = {}
+
+function PlayerData.OnItemAdded(callback: (Player, string, number) -> ())
+	table.insert(itemAddedListeners, callback)
+end
+
 -- 실 DataStore 접근이 막혀 있을 때를 대비한 세션 내 메모리 백업 저장소.
 local memoryStore: { [number]: PlayerDataShape } = {}
 local cache: { [number]: PlayerDataShape } = {}
@@ -303,6 +311,20 @@ local function coreAddHorseAffinity(userId: number, horseId: string, amount: num
 	return true, newAmount
 end
 
+local function coreGetQuestProgress(userId: number, questId: string): Types.QuestProgress
+	local data = coreLoad(userId)
+	local existing = data.quests[questId]
+	if existing then
+		return existing
+	end
+	return { progress = 0, completed = false }
+end
+
+local function coreSetQuestProgress(userId: number, questId: string, progress: number, completed: boolean)
+	local data = coreLoad(userId)
+	data.quests[questId] = { progress = progress, completed = completed }
+end
+
 -- ===== 플레이어 대상 공개 API =====
 
 function PlayerData.Load(player: Player)
@@ -316,6 +338,7 @@ function PlayerData.Load(player: Player)
 		currency = data.currency,
 		upgrades = data.upgrades,
 		horseAffinity = data.horseAffinity,
+		quests = data.quests,
 	})
 end
 
@@ -343,6 +366,10 @@ function PlayerData.AddItem(player: Player, itemId: string, amount: number?): (b
 		newCount = newCount,
 		delta = amount or 1,
 	})
+
+	for _, listener in itemAddedListeners do
+		listener(player, itemId, newCount)
+	end
 
 	return true, newCount
 end
@@ -433,6 +460,16 @@ function PlayerData.AddHorseAffinity(player: Player, horseId: string, amount: nu
 		delta = amount,
 	})
 	return true, newAmount
+end
+
+function PlayerData.GetQuestProgress(player: Player, questId: string): Types.QuestProgress
+	return coreGetQuestProgress(player.UserId, questId)
+end
+
+-- 알림(QuestProgress RemoteEvent)은 이 API를 쓰지 않는다 — 호출부(QuestService)가
+-- 퀘스트 이름·목표치 같은 표시용 정보를 더 잘 알고 있어서 직접 보낸다.
+function PlayerData.SetQuestProgress(player: Player, questId: string, progress: number, completed: boolean)
+	coreSetQuestProgress(player.UserId, questId, progress, completed)
 end
 
 function PlayerData.IsMemoryFallback(): boolean
