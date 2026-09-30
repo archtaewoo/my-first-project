@@ -20,6 +20,14 @@ local function getFeaturesFolder(): Folder
 	return features
 end
 
+-- 이 폴더 이름을 "Remotes"로 하면 안 된다 — 이 파일 자체가 Rojo에 의해
+-- ReplicatedStorage.Features.Remotes 라는 "Remotes"란 이름의 ModuleScript가 되므로,
+-- 같은 이름의 Folder를 같은 부모(Features) 밑에 만들면 형제 인스턴스 이름이 겹친다.
+-- FindFirstChild/WaitForChild("Remotes")는 둘 중 먼저 찾아지는 걸 반환하는데, 보통
+-- (Rojo가 Play 시작 전부터 이미 만들어 둔) ModuleScript가 먼저 있어서 그게 잡히고,
+-- 그 안엔 RemoteEvent가 없으니 클라이언트가 영원히 기다리게 된다.
+local REMOTES_FOLDER_NAME = "RemoteEvents"
+
 local function getOrCreateFolder(): Folder
 	if folderCache then
 		return folderCache
@@ -28,13 +36,13 @@ local function getOrCreateFolder(): Folder
 	local features = getFeaturesFolder()
 
 	if RunService:IsServer() then
-		local existing = features:FindFirstChild("Remotes")
+		local existing = features:FindFirstChild(REMOTES_FOLDER_NAME)
 		local folder: Folder
 		if existing and existing:IsA("Folder") then
 			folder = existing
 		else
 			folder = Instance.new("Folder")
-			folder.Name = "Remotes"
+			folder.Name = REMOTES_FOLDER_NAME
 			folder.Parent = features
 		end
 
@@ -52,7 +60,7 @@ local function getOrCreateFolder(): Folder
 		folderCache = folder
 		return folder
 	else
-		local folder = features:WaitForChild("Remotes") :: Folder
+		local folder = features:WaitForChild(REMOTES_FOLDER_NAME) :: Folder
 		folderCache = folder
 		return folder
 	end
