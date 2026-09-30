@@ -67,6 +67,14 @@ export type OpenShopPayload = {
 	listings: { ShopListingView },
 }
 
+export type FishingCastStartedPayload = {
+	spotDisplayName: string,
+}
+
+export type FishingResultPayload = {
+	success: boolean,
+}
+
 export type InventoryDeltaPayload = {
 	itemId: string,
 	newCount: number,

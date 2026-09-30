@@ -7,7 +7,15 @@
 
 local SoundService = game:GetService("SoundService")
 
-export type SfxName = "ShopOpen" | "Purchase" | "Sell" | "PurchaseError" | "TabSwitch"
+export type SfxName =
+	"ShopOpen"
+	| "Purchase"
+	| "Sell"
+	| "PurchaseError"
+	| "TabSwitch"
+	| "FishingBite"
+	| "FishingCatch"
+	| "FishingMiss"
 
 local SOUND_IDS: { [SfxName]: string } = {
 	ShopOpen = "",
@@ -15,6 +23,9 @@ local SOUND_IDS: { [SfxName]: string } = {
 	Sell = "",
 	PurchaseError = "",
 	TabSwitch = "",
+	FishingBite = "",
+	FishingCatch = "",
+	FishingMiss = "",
 }
 
 local VOLUME: { [SfxName]: number } = {
@@ -23,6 +34,9 @@ local VOLUME: { [SfxName]: number } = {
 	Sell = 0.6,
 	PurchaseError = 0.4,
 	TabSwitch = 0.3,
+	FishingBite = 0.6,
+	FishingCatch = 0.6,
+	FishingMiss = 0.4,
 }
 
 local SFX = {}

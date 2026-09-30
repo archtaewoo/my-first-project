@@ -15,6 +15,7 @@ local Toast = require(script.Parent.UI.Toast)
 local CodexUI = require(script.Parent.UI.CodexUI)
 local ShopUI = require(script.Parent.UI.ShopUI)
 local CurrencyHud = require(script.Parent.UI.CurrencyHud)
+local FishingUI = require(script.Parent.UI.FishingUI)
 local SFX = require(script.Parent.SFX)
 
 local player = Players.LocalPlayer
@@ -99,6 +100,17 @@ ShopUI.Init(playerGui, {
 	OnSell = onSellClicked,
 })
 
+local reactToBiteFunction = Remotes.GetFunction("ReactToBite")
+
+local function onFishingReact()
+	-- 서버가 실제 성공/실패를 FishingResult로 알려준다. 여기서는 "눌렀다"는 것만 서버에 전달한다.
+	reactToBiteFunction:InvokeServer()
+end
+
+FishingUI.Init(playerGui, {
+	OnReact = onFishingReact,
+})
+
 -- ===== 서버 이벤트 수신 =====
 
 local inventorySync = Remotes.Get("InventorySync")
@@ -106,6 +118,9 @@ local inventoryDelta = Remotes.Get("InventoryDelta")
 local itemAdded = Remotes.Get("ItemAdded")
 local currencyChanged = Remotes.GetEvent("CurrencyChanged")
 local openShop = Remotes.GetEvent("OpenShop")
+local fishingCastStarted = Remotes.GetEvent("FishingCastStarted")
+local fishingBite = Remotes.GetEvent("FishingBite")
+local fishingResult = Remotes.GetEvent("FishingResult")
 
 inventorySync.OnClientEvent:Connect(function(payload: Types.InventorySyncPayload)
 	inventoryCache = payload.inventory
@@ -145,6 +160,24 @@ openShop.OnClientEvent:Connect(function(payload: Types.OpenShopPayload)
 	CodexUI.SetOpen(false)
 	SFX.Play("ShopOpen")
 	ShopUI.Open(payload)
+end)
+
+fishingCastStarted.OnClientEvent:Connect(function(payload: Types.FishingCastStartedPayload)
+	FishingUI.ShowCasting(payload.spotDisplayName)
+end)
+
+fishingBite.OnClientEvent:Connect(function()
+	SFX.Play("FishingBite")
+	FishingUI.ShowBite()
+end)
+
+fishingResult.OnClientEvent:Connect(function(payload: Types.FishingResultPayload)
+	if payload.success then
+		SFX.Play("FishingCatch")
+	else
+		SFX.Play("FishingMiss")
+	end
+	FishingUI.ShowResult(payload.success)
 end)
 
 -- ===== 입력 =====

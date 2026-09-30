@@ -7,17 +7,31 @@
 --   ItemAdded      : 채집 등으로 아이템을 얻었을 때 토스트용 알림 (isNewDiscovery로 최초 발견 여부 포함)
 --   CurrencyChanged: 화폐(도토리 등)가 바뀔 때마다 보내는 델타
 --   OpenShop       : ProximityPrompt로 상점을 열 때 그 상점의 판매 목록을 실어 보낸다
+--   FishingCastStarted: 낚시를 시작했을 때(기다리는 중 문구용)
+--   FishingBite       : 입질이 왔을 때("지금이야!" 반응 신호)
+--   FishingResult     : 낚시 성공/실패가 최종 확정됐을 때 (잡은 아이템 자체는 ItemAdded로 별도 안내)
 --
 -- RemoteFunction (클라이언트 -> 서버, 요청·응답)
 --   Purchase(shopId, listingId) -> (ok: boolean, message: string)
 --   Sell(itemId, quantity)      -> (ok: boolean, message: string, totalEarned: number)
--- 둘 다 클라이언트가 보낸 값(가격 등)은 신뢰하지 않고, 서버가 ShopCatalog 기준으로 전부 재검증한다.
+--   ReactToBite()               -> (accepted: boolean) — 입질 중에 눌렀는지 여부만 즉시 알려주고,
+--                                   실제 성공/실패는 FishingResult로 온다.
+-- 전부 클라이언트가 보낸 값(가격·타이밍 등)은 신뢰하지 않고, 서버가 직접 검증/판정한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local REMOTE_EVENT_NAMES = { "InventorySync", "InventoryDelta", "ItemAdded", "CurrencyChanged", "OpenShop" }
-local REMOTE_FUNCTION_NAMES = { "Purchase", "Sell" }
+local REMOTE_EVENT_NAMES = {
+	"InventorySync",
+	"InventoryDelta",
+	"ItemAdded",
+	"CurrencyChanged",
+	"OpenShop",
+	"FishingCastStarted",
+	"FishingBite",
+	"FishingResult",
+}
+local REMOTE_FUNCTION_NAMES = { "Purchase", "Sell", "ReactToBite" }
 
 -- 이 폴더 이름을 "Remotes"로 하면 안 된다 — 이 파일 자체가 Rojo에 의해
 -- ReplicatedStorage.Features.Remotes 라는 "Remotes"란 이름의 ModuleScript가 되므로,
