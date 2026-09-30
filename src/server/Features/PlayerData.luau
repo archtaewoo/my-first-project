@@ -12,6 +12,7 @@ local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Featu
 local ItemDatabase = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("ItemDatabase"))
 local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("ShopCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("Types"))
+local InventoryConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("InventoryConfig"))
 
 type PlayerDataShape = Types.PlayerData
 
@@ -189,12 +190,33 @@ local function coreSave(userId: number): boolean
 	return true
 end
 
+local function coreInventoryTotal(userId: number): number
+	local data = coreLoad(userId)
+	local total = 0
+	for _, count in data.inventory do
+		total += count
+	end
+	return total
+end
+
+local function coreInventoryCapacity(userId: number): number
+	local data = coreLoad(userId)
+	return InventoryConfig.CapacityFor(data.upgrades)
+end
+
+local function coreHasInventoryRoom(userId: number, amount: number): boolean
+	return coreInventoryTotal(userId) + amount <= coreInventoryCapacity(userId)
+end
+
 local function coreAddItem(userId: number, itemId: string, amount: number): (boolean, number, boolean)
 	if amount <= 0 or amount ~= math.floor(amount) then
 		return false, 0, false
 	end
 	if not ItemDatabase.Exists(itemId) then
 		warn(`[PlayerData] 알 수 없는 ItemId: {itemId}`)
+		return false, 0, false
+	end
+	if not coreHasInventoryRoom(userId, amount) then
 		return false, 0, false
 	end
 
@@ -474,6 +496,18 @@ end
 
 function PlayerData.IsMemoryFallback(): boolean
 	return usingMemoryFallback
+end
+
+function PlayerData.GetInventoryCapacity(player: Player): number
+	return coreInventoryCapacity(player.UserId)
+end
+
+function PlayerData.GetInventoryTotal(player: Player): number
+	return coreInventoryTotal(player.UserId)
+end
+
+function PlayerData.HasInventoryRoom(player: Player, amount: number?): boolean
+	return coreHasInventoryRoom(player.UserId, amount or 1)
 end
 
 -- ===== FeatureTests 전용 (userId 기반, Player 인스턴스 불필요) =====

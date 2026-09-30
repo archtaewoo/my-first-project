@@ -13,8 +13,8 @@
 --   AffinityChanged   : 말 애정도 원값이 바뀔 때마다 보내는 델타
 --   HorseCareResult   : 먹이/물/빗질을 했을 때 말 이름·등급·등급 상승 여부를 담아 안내
 --   OpenCampfire      : 모닥불 프롬프트를 열 때 요리 가능한 레시피 목록을 실어 보낸다
---   SleepMessage      : 같이 자기 진행 상황(기다리는 중/성사/취소) 안내 — 조사 처리가 필요 없는
---                        고정 문장이라 서버가 완성된 문자열을 그대로 보낸다
+--   SimpleMessage     : 조사 처리가 필요 없는 완성된 한 문장을 그대로 띄우는 범용 알림
+--                        (같이 자기 진행 상황, 가방이 가득 찼을 때, 수레 연결/분리 안내 등)
 --   OpenQuestBoard    : 게시판을 열 때 방문/수집 퀘스트 전체 현황을 실어 보낸다
 --   QuestProgress     : 퀘스트 진행도가 바뀌거나 완료됐을 때 안내
 -- RemoteFunction (클라이언트 -> 서버, 요청·응답)
@@ -41,7 +41,7 @@ local REMOTE_EVENT_NAMES = {
 	"AffinityChanged",
 	"HorseCareResult",
 	"OpenCampfire",
-	"SleepMessage",
+	"SimpleMessage",
 	"OpenQuestBoard",
 	"QuestProgress",
 }

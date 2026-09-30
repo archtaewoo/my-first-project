@@ -34,6 +34,7 @@ local KIND_LABEL: { [Types.ItemKind]: string } = {
 
 local gridFrame: ScrollingFrame? = nil
 local screenGuiRef: ScreenGui? = nil
+local capacityLabelRef: TextLabel? = nil
 local tabButtons: { [Types.ItemKind]: TextButton } = {}
 local cellCountLabels: { [string]: TextLabel } = {}
 local currentKind: Types.ItemKind = "Fish"
@@ -190,6 +191,20 @@ function CodexUI.Init(playerGui: PlayerGui)
 	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tabLayout.Parent = tabBar
 
+	local capacityLabel = Instance.new("TextLabel")
+	capacityLabel.Name = "CapacityLabel"
+	capacityLabel.AnchorPoint = Vector2.new(1, 0.5)
+	capacityLabel.Position = UDim2.new(1, -20, 0, 76)
+	capacityLabel.Size = UDim2.new(0, 150, 0, 30)
+	capacityLabel.BackgroundTransparency = 1
+	capacityLabel.Font = Enum.Font.GothamBold
+	capacityLabel.TextColor3 = COLOR_ACCENT
+	capacityLabel.TextScaled = true
+	capacityLabel.TextXAlignment = Enum.TextXAlignment.Right
+	capacityLabel.Text = "가방 0/50"
+	capacityLabel.Parent = frame
+	capacityLabelRef = capacityLabel
+
 	for i, kind: Types.ItemKind in KIND_ORDER do
 		local button = Instance.new("TextButton")
 		button.Name = kind
@@ -276,6 +291,15 @@ function CodexUI.UpdateItem(itemId: string, newCount: number)
 			refreshGrid()
 		end
 	end
+end
+
+function CodexUI.SetCapacity(total: number, capacity: number)
+	local label = capacityLabelRef
+	if not label then
+		return
+	end
+	label.Text = `가방 {total}/{capacity}`
+	label.TextColor3 = if total >= capacity then Color3.fromRGB(196, 120, 100) else COLOR_ACCENT
 end
 
 function CodexUI.SetOpen(open: boolean)

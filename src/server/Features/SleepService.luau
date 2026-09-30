@@ -42,7 +42,7 @@ local function findAnchorPart(instance: Instance): BasePart?
 end
 
 local function sendMessage(player: Player, message: string)
-	Remotes.GetEvent("SleepMessage"):FireClient(player, message)
+	Remotes.GetEvent("SimpleMessage"):FireClient(player, message)
 end
 
 local function bringMorning()

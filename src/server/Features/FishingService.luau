@@ -179,9 +179,13 @@ local function resolveSuccess(player: Player, pState: PlayerFishingState)
 
 	local fishId = pickFish(pState.zone, rareMultiplier)
 	if fishId then
-		PlayerData.AddItem(player, fishId, 1)
+		local added = PlayerData.AddItem(player, fishId, 1)
+		if not added then
+			Remotes.GetEvent("SimpleMessage"):FireClient(player, "손맛은 느꼈지만, 가방이 가득 차서 놓아줬어요.")
+		end
 	end
 
+	-- 잡기 타이밍 성공/실패는 가방 용량과 무관하게 그대로 알린다 — 놓아준 것도 "손맛"의 일부로 본다.
 	Remotes.GetEvent("FishingResult"):FireClient(player, { success = fishId ~= nil })
 end
 

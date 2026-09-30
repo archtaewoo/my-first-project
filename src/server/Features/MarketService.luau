@@ -223,6 +223,10 @@ local function onPurchaseInvoked(player: Player, shopIdArg: unknown, listingIdAr
 		end
 	end
 
+	if listing.kind == "BuyItem" and not PlayerData.HasInventoryRoom(player, 1) then
+		return false, "inventory_full"
+	end
+
 	if not PlayerData.HasCurrency(player, listing.currencyId, listing.price) then
 		return false, "not_enough_currency"
 	end

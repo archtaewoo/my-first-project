@@ -123,6 +123,10 @@ local function onCookInvoked(player: Player, recipeIdArg: unknown): (boolean, st
 		end
 	end
 
+	if not PlayerData.HasInventoryRoom(player, 1) then
+		return false, "inventory_full"
+	end
+
 	for itemId, needed in recipe.ingredients do
 		local removedOk = PlayerData.RemoveItem(player, itemId, needed)
 		if not removedOk then

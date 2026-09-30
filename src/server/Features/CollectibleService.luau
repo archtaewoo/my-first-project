@@ -5,6 +5,9 @@
 
 local CollectionService = game:GetService("CollectionService")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("Remotes"))
+
 local PlayerData = require(script.Parent.PlayerData)
 
 local TAG = "Collectible"
@@ -81,11 +84,15 @@ local function onTriggered(state: CollectibleState, player: Player)
 		return
 	end
 
+	local added = PlayerData.AddItem(player, itemId, 1)
+	if not added then
+		Remotes.GetEvent("SimpleMessage"):FireClient(player, "가방이 가득 찼어요. 정리하고 다시 와 주세요.")
+		return -- 채집물은 그대로 남겨둔다 — 다시 시도할 수 있게
+	end
+
 	state.available = false
 	state.respawnAt = os.time() + RESPAWN_SECONDS
 	setHidden(state, true)
-
-	PlayerData.AddItem(player, itemId, 1)
 end
 
 local function setupCollectible(instance: Instance)

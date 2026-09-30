@@ -10,6 +10,7 @@ local Remotes = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild(
 local ItemDatabase = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("ItemDatabase"))
 local ShopCatalog = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("ShopCatalog"))
 local Types = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("Types"))
+local InventoryConfig = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("InventoryConfig"))
 
 local Toast = require(script.Parent.UI.Toast)
 local CodexUI = require(script.Parent.UI.CodexUI)
@@ -51,6 +52,15 @@ local inventoryCache: { [string]: number } = {}
 local codexCache: { [string]: any } = {}
 local currencyCache: { [string]: number } = {}
 local horseAffinityCache: { [string]: number } = {}
+local upgradesCache: { [string]: boolean } = {}
+
+local function refreshCapacityDisplay()
+	local total = 0
+	for _, count in inventoryCache do
+		total += count
+	end
+	CodexUI.SetCapacity(total, InventoryConfig.CapacityFor(upgradesCache))
+end
 
 local ACORN = ShopCatalog.CURRENCY_ACORN
 
@@ -62,6 +72,7 @@ local PURCHASE_FAILURE_MESSAGE: { [string]: string } = {
 	missing_requirement = "먼저 다른 걸 갖추고 와야 해요.",
 	not_enough_currency = "도토리가 부족해요.",
 	purchase_failed = "지금은 살 수 없어요.",
+	inventory_full = "가방이 가득 찼어요. 정리하고 다시 와 주세요.",
 }
 
 local SELL_FAILURE_MESSAGE: { [string]: string } = {
@@ -78,6 +89,7 @@ local COOK_FAILURE_MESSAGE: { [string]: string } = {
 	unknown_recipe = "그런 레시피는 없어요.",
 	missing_ingredients = "재료가 부족해요.",
 	cook_failed = "지금은 요리할 수 없어요.",
+	inventory_full = "가방이 가득 찼어요. 정리하고 다시 와 주세요.",
 }
 
 local EAT_FAILURE_MESSAGE: { [string]: string } = {
@@ -102,6 +114,9 @@ local function onPurchaseClicked(shopId: string, listingId: string)
 	if ok then
 		SFX.Play("Purchase")
 		ShopUI.MarkOwned(listingId)
+		-- BuyItem 구매면 무해한 키가 하나 늘어날 뿐이다 - 용량 계산은 cart_basic/cart_large 키만 본다.
+		upgradesCache[listingId] = true
+		refreshCapacityDisplay()
 		Toast.Show("구매했어요!")
 	else
 		SFX.Play("PurchaseError")
@@ -187,7 +202,7 @@ local fishingResult = Remotes.GetEvent("FishingResult")
 local affinityChanged = Remotes.GetEvent("AffinityChanged")
 local horseCareResult = Remotes.GetEvent("HorseCareResult")
 local openCampfire = Remotes.GetEvent("OpenCampfire")
-local sleepMessage = Remotes.GetEvent("SleepMessage")
+local simpleMessage = Remotes.GetEvent("SimpleMessage")
 local openQuestBoard = Remotes.GetEvent("OpenQuestBoard")
 local questProgress = Remotes.GetEvent("QuestProgress")
 
@@ -196,11 +211,13 @@ inventorySync.OnClientEvent:Connect(function(payload: Types.InventorySyncPayload
 	codexCache = payload.codex
 	currencyCache = payload.currency
 	horseAffinityCache = payload.horseAffinity
+	upgradesCache = payload.upgrades
 	CodexUI.SetData(inventoryCache, codexCache)
 	ShopUI.SetInventory(inventoryCache)
 	CampfireUI.SetInventory(inventoryCache)
 	CurrencyHud.Set(currencyCache[ACORN] or 0)
 	ShopUI.SetCurrency(currencyCache[ACORN] or 0)
+	refreshCapacityDisplay()
 end)
 
 inventoryDelta.OnClientEvent:Connect(function(payload: Types.InventoryDeltaPayload)
@@ -208,6 +225,7 @@ inventoryDelta.OnClientEvent:Connect(function(payload: Types.InventoryDeltaPaylo
 	CodexUI.UpdateItem(payload.itemId, payload.newCount)
 	ShopUI.SetInventory(inventoryCache)
 	CampfireUI.SetInventory(inventoryCache)
+	refreshCapacityDisplay()
 end)
 
 itemAdded.OnClientEvent:Connect(function(payload: Types.ItemAddedPayload)
@@ -260,7 +278,7 @@ questProgress.OnClientEvent:Connect(function(payload: Types.QuestProgressPayload
 	end
 end)
 
-sleepMessage.OnClientEvent:Connect(function(message: string)
+simpleMessage.OnClientEvent:Connect(function(message: string)
 	Toast.Show(message)
 end)
 
