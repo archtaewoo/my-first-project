@@ -17,6 +17,7 @@ local ShopUI = require(script.Parent.UI.ShopUI)
 local CurrencyHud = require(script.Parent.UI.CurrencyHud)
 local FishingUI = require(script.Parent.UI.FishingUI)
 local CampfireUI = require(script.Parent.UI.CampfireUI)
+local TimeOfDayHud = require(script.Parent.UI.TimeOfDayHud)
 local SFX = require(script.Parent.SFX)
 
 local player = Players.LocalPlayer
@@ -90,6 +91,7 @@ local EAT_FAILURE_MESSAGE: { [string]: string } = {
 Toast.Init(playerGui)
 CodexUI.Init(playerGui)
 CurrencyHud.Init(playerGui)
+TimeOfDayHud.Init(playerGui)
 
 local purchaseFunction = Remotes.GetFunction("Purchase")
 local sellFunction = Remotes.GetFunction("Sell")

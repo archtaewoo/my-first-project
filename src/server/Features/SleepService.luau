@@ -1,15 +1,16 @@
 --!strict
 -- 같이 자기: 같은 잠자리에서 서로 다른 두 플레이어가 함께해야 밤에서 아침으로 넘어간다.
--- 시간 전환은 Lighting.ClockTime을 직접 바꾼다 — 낮/밤 자동 순환(다음 작업)은 아직 없어서,
--- 여기서 아침으로 맞춘 뒤로는 따로 흐르지 않고 그 시각에 멈춰 있는다.
+-- 시간 전환은 DayNightService.SkipTo()로 즉시 건너뛴다(트윈 아님) — DayNightService가 매
+-- 프레임 Lighting.ClockTime을 갱신하므로, 여기서 몇 초짜리 트윈을 따로 걸면 그 프레임 갱신과
+-- 경합해서 뚝뚝 끊긴다. 건너뛴 다음 프레임부터는 다시 DayNightService가 자연스럽게 흘려보낸다.
 -- 실패 요소 없음: 혼자 기다리다 시간이 지나도 조용히 취소될 뿐, 벌칙은 없다.
 
 local CollectionService = game:GetService("CollectionService")
-local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("Remotes"))
+
+local DayNightService = require(script.Parent.DayNightService)
 
 local SLEEP_SPOT_TAG = "SleepSpot"
 local PROMPT_ACTION_TEXT = "같이 자기"
@@ -17,7 +18,6 @@ local PROMPT_HOLD_DURATION = 0.4
 local PROMPT_MAX_DISTANCE = 10
 local WAIT_SECONDS = 30
 local MORNING_CLOCK_TIME = 7
-local TRANSITION_SECONDS = 4
 
 local SleepService = {}
 
@@ -46,10 +46,7 @@ local function sendMessage(player: Player, message: string)
 end
 
 local function bringMorning()
-	local tween = TweenService:Create(Lighting, TweenInfo.new(TRANSITION_SECONDS, Enum.EasingStyle.Sine), {
-		ClockTime = MORNING_CLOCK_TIME,
-	})
-	tween:Play()
+	DayNightService.SkipTo(MORNING_CLOCK_TIME)
 end
 
 local function onSpotTriggered(state: SpotState, player: Player)
