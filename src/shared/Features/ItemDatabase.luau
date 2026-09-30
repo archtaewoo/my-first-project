@@ -147,6 +147,13 @@ local items: { [string]: ItemDefinition } = {
 		rarity = "Rare",
 		description = "숲에서 얻은 재료로 정성껏 구운 파이예요.",
 	},
+	food_honey_bread = {
+		id = "food_honey_bread",
+		kind = "Food",
+		displayName = "꿀빵",
+		rarity = "Uncommon",
+		description = "빵집에서 갓 구워낸, 꿀이 촉촉하게 밴 빵이에요.",
+	},
 }
 
 local ItemDatabase = {}

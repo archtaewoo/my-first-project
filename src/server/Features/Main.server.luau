@@ -1,9 +1,10 @@
 --!strict
 -- 서버 진입점. ModuleScript는 스스로 실행되지 않으므로 여기서 require 하고 Init()을 호출한다.
--- 순서: Remotes(플레이어 접속과 무관하게 즉시 생성) -> PlayerData -> CollectibleService -> FeatureTests
+-- 순서: Remotes(플레이어 접속과 무관하게 즉시 생성) -> PlayerData -> MarketService -> CollectibleService -> FeatureTests
 
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("Remotes"))
 local PlayerData = require(script.Parent.PlayerData)
+local MarketService = require(script.Parent.MarketService)
 local CollectibleService = require(script.Parent.CollectibleService)
 local FeatureTests = require(script.Parent.FeatureTests)
 
@@ -13,6 +14,7 @@ local FeatureTests = require(script.Parent.FeatureTests)
 Remotes.EnsureAll()
 
 PlayerData.Init()
+MarketService.Init()
 CollectibleService.Init()
 FeatureTests.Init()
 

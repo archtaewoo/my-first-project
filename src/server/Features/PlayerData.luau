@@ -10,11 +10,12 @@ local Players = game:GetService("Players")
 
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("Remotes"))
 local ItemDatabase = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("ItemDatabase"))
+local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("ShopCatalog"))
 local Types = require(game:GetService("ReplicatedStorage"):WaitForChild("Features"):WaitForChild("Types"))
 
 type PlayerDataShape = Types.PlayerData
 
-local SCHEMA_VERSION = 1
+local SCHEMA_VERSION = 2
 local DATASTORE_NAME = "HealingForest_PlayerData_v1"
 local AUTOSAVE_INTERVAL = 300 -- 5분
 local MAX_RETRIES = 3
@@ -68,19 +69,26 @@ local function defaultData(): PlayerDataShape
 		quests = {},
 		horseAffinity = {},
 		stats = {},
+		currency = { [ShopCatalog.CURRENCY_ACORN] = ShopCatalog.STARTING_ACORNS },
+		upgrades = {},
 		lastSaved = os.time(),
 	}
 end
 
 local function migrate(data: PlayerDataShape): PlayerDataShape
-	-- 스키마가 바뀌면 여기서 버전별로 채워 넣는다. 현재는 v1 하나뿐이라 누락 필드만 보정한다.
+	-- 스키마가 바뀌면 여기서 버전별로 채워 넣는다. 누락 필드만 채우는 식이라 항상 안전하다.
+	-- v1 -> v2: currency/upgrades 필드 추가. 기존 플레이어에게 소급 지급하지 않고 0(빈 값)에서 시작한다
+	-- (신규 플레이어만 defaultData()를 통해 시작 도토리를 받는다).
 	data.version = data.version or SCHEMA_VERSION
 	data.inventory = data.inventory or {}
 	data.codex = data.codex or {}
 	data.quests = data.quests or {}
 	data.horseAffinity = data.horseAffinity or {}
 	data.stats = data.stats or {}
+	data.currency = data.currency or {}
+	data.upgrades = data.upgrades or {}
 	data.lastSaved = data.lastSaved or os.time()
+	data.version = SCHEMA_VERSION
 	return data
 end
 
@@ -227,6 +235,54 @@ local function coreHasItem(userId: number, itemId: string, amount: number): bool
 	return (data.inventory[itemId] or 0) >= amount
 end
 
+local function coreGetCurrency(userId: number, currencyId: string): number
+	local data = coreLoad(userId)
+	return data.currency[currencyId] or 0
+end
+
+local function coreHasCurrency(userId: number, currencyId: string, amount: number): boolean
+	return coreGetCurrency(userId, currencyId) >= amount
+end
+
+local function coreAddCurrency(userId: number, currencyId: string, amount: number): (boolean, number)
+	if amount <= 0 or amount ~= math.floor(amount) then
+		return false, coreGetCurrency(userId, currencyId)
+	end
+	local data = coreLoad(userId)
+	local newAmount = (data.currency[currencyId] or 0) + amount
+	data.currency[currencyId] = newAmount
+	return true, newAmount
+end
+
+local function coreRemoveCurrency(userId: number, currencyId: string, amount: number): (boolean, number)
+	if amount <= 0 or amount ~= math.floor(amount) then
+		return false, coreGetCurrency(userId, currencyId)
+	end
+	local data = coreLoad(userId)
+	local current = data.currency[currencyId] or 0
+	if current < amount then
+		return false, current
+	end
+	local newAmount = current - amount
+	data.currency[currencyId] = newAmount
+	return true, newAmount
+end
+
+local function coreHasUpgrade(userId: number, upgradeId: string): boolean
+	local data = coreLoad(userId)
+	return data.upgrades[upgradeId] == true
+end
+
+-- 이미 가지고 있으면 false를 반환한다 (중복 지급/중복 차감 방지는 호출부인 MarketService의 몫).
+local function coreGrantUpgrade(userId: number, upgradeId: string): boolean
+	local data = coreLoad(userId)
+	if data.upgrades[upgradeId] then
+		return false
+	end
+	data.upgrades[upgradeId] = true
+	return true
+end
+
 -- ===== 플레이어 대상 공개 API =====
 
 function PlayerData.Load(player: Player)
@@ -237,6 +293,8 @@ function PlayerData.Load(player: Player)
 		inventory = data.inventory,
 		codex = data.codex,
 		stats = data.stats,
+		currency = data.currency,
+		upgrades = data.upgrades,
 	})
 end
 
@@ -291,6 +349,48 @@ end
 
 function PlayerData.GetSnapshot(player: Player): PlayerDataShape
 	return coreLoad(player.UserId)
+end
+
+function PlayerData.GetCurrency(player: Player, currencyId: string): number
+	return coreGetCurrency(player.UserId, currencyId)
+end
+
+function PlayerData.HasCurrency(player: Player, currencyId: string, amount: number): boolean
+	return coreHasCurrency(player.UserId, currencyId, amount)
+end
+
+function PlayerData.AddCurrency(player: Player, currencyId: string, amount: number): (boolean, number)
+	local ok, newAmount = coreAddCurrency(player.UserId, currencyId, amount)
+	if not ok then
+		return false, newAmount
+	end
+	Remotes.Get("CurrencyChanged"):FireClient(player, {
+		currencyId = currencyId,
+		newAmount = newAmount,
+		delta = amount,
+	})
+	return true, newAmount
+end
+
+function PlayerData.RemoveCurrency(player: Player, currencyId: string, amount: number): (boolean, number)
+	local ok, newAmount = coreRemoveCurrency(player.UserId, currencyId, amount)
+	if not ok then
+		return false, newAmount
+	end
+	Remotes.Get("CurrencyChanged"):FireClient(player, {
+		currencyId = currencyId,
+		newAmount = newAmount,
+		delta = -amount,
+	})
+	return true, newAmount
+end
+
+function PlayerData.HasUpgrade(player: Player, upgradeId: string): boolean
+	return coreHasUpgrade(player.UserId, upgradeId)
+end
+
+function PlayerData.GrantUpgrade(player: Player, upgradeId: string): boolean
+	return coreGrantUpgrade(player.UserId, upgradeId)
 end
 
 function PlayerData.IsMemoryFallback(): boolean
