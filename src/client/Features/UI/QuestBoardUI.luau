@@ -1,18 +1,20 @@
 --!strict
 -- 퀘스트 게시판 창. 읽기 전용 — 누르는 버튼 없이 현재 진행 상황만 보여준다.
+--
+-- 공통 디자인 틀(Theme/Components)로 조립한다 - 데이터 흐름(Init/Open/Close/IsOpen/
+-- UpdateQuest)은 전과 동일하고 겉모습만 바뀌었다. 오른쪽의 "완료!"/"n/목표" 표시는
+-- ItemCard의 액션 버튼 자리를 누를 수 없는 상태 칩으로 재사용한 것이다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Types = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("Types"))
 
-local QuestBoardUI = {}
+local UIFolder = ReplicatedStorage:WaitForChild("Features"):WaitForChild("UI")
+local Theme = require(UIFolder:WaitForChild("Theme"))
+local Components = UIFolder:WaitForChild("Components")
+local PanelFrame = require(Components:WaitForChild("PanelFrame"))
+local ItemCard = require(Components:WaitForChild("ItemCard"))
 
-local COLOR_BG = Color3.fromRGB(45, 32, 22)
-local COLOR_PANEL = Color3.fromRGB(63, 45, 30)
-local COLOR_CARD = Color3.fromRGB(77, 56, 38)
-local COLOR_CARD_DONE = Color3.fromRGB(70, 86, 58)
-local COLOR_TEXT = Color3.fromRGB(248, 238, 220)
-local COLOR_TEXT_MUTED = Color3.fromRGB(178, 156, 130)
-local COLOR_ACCENT = Color3.fromRGB(196, 160, 112)
+local QuestBoardUI = {}
 
 local screenGuiRef: ScreenGui? = nil
 local listFrame: ScrollingFrame? = nil
@@ -31,6 +33,17 @@ local function clearList()
 	end
 end
 
+local function showEmpty(parent: Instance)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 0, 60)
+	label.Font = Theme.Font.BodyLight
+	label.TextColor3 = Theme.Color.TextMuted
+	label.TextScaled = true
+	label.Text = "게시된 퀘스트가 없어요."
+	label.Parent = parent
+end
+
 local function renderList()
 	clearList()
 	local list = listFrame
@@ -38,66 +51,37 @@ local function renderList()
 		return
 	end
 
-	for _, quest in currentQuests do
-		local row = Instance.new("Frame")
-		row.BackgroundColor3 = if quest.completed then COLOR_CARD_DONE else COLOR_CARD
-		row.Size = UDim2.new(1, 0, 0, 74)
-		row.Parent = list
+	for order, quest in currentQuests do
+		local statusText: string
+		local statusColor: Color3
+		if quest.completed then
+			statusText, statusColor = "완료!", Theme.Color.AccentGreen
+		else
+			statusText, statusColor = `{quest.progress}/{quest.target}`, Theme.Color.Panel
+		end
 
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 10)
-		corner.Parent = row
+		local card = ItemCard.new({
+			parent = list,
+			layoutOrder = order,
+			title = `[{quest.kindLabel}] {quest.displayName}`,
+			subText = quest.hint,
+			iconText = quest.kindLabel,
+			actionText = statusText,
+			height = 78,
+		})
 
-		local padding = Instance.new("UIPadding")
-		padding.PaddingLeft = UDim.new(0, 14)
-		padding.PaddingRight = UDim.new(0, 14)
-		padding.PaddingTop = UDim.new(0, 8)
-		padding.PaddingBottom = UDim.new(0, 8)
-		padding.Parent = row
-
-		local nameLabel = Instance.new("TextLabel")
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.Size = UDim2.new(0.72, 0, 0.5, 0)
-		nameLabel.Font = Enum.Font.GothamBold
-		nameLabel.TextColor3 = COLOR_TEXT
-		nameLabel.TextScaled = true
-		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		nameLabel.Text = `[{quest.kindLabel}] {quest.displayName}`
-		nameLabel.Parent = row
-
-		local hintLabel = Instance.new("TextLabel")
-		hintLabel.BackgroundTransparency = 1
-		hintLabel.Position = UDim2.new(0, 0, 0.5, 0)
-		hintLabel.Size = UDim2.new(0.72, 0, 0.5, 0)
-		hintLabel.Font = Enum.Font.Gotham
-		hintLabel.TextColor3 = COLOR_TEXT_MUTED
-		hintLabel.TextScaled = true
-		hintLabel.TextXAlignment = Enum.TextXAlignment.Left
-		hintLabel.TextWrapped = true
-		hintLabel.Text = quest.hint
-		hintLabel.Parent = row
-
-		local statusLabel = Instance.new("TextLabel")
-		statusLabel.AnchorPoint = Vector2.new(1, 0.5)
-		statusLabel.Position = UDim2.new(1, 0, 0.5, 0)
-		statusLabel.Size = UDim2.new(0.24, 0, 0.6, 0)
-		statusLabel.BackgroundTransparency = 1
-		statusLabel.Font = Enum.Font.GothamBold
-		statusLabel.TextColor3 = if quest.completed then COLOR_ACCENT else COLOR_TEXT
-		statusLabel.TextScaled = true
-		statusLabel.Text = if quest.completed then "완료!" else `{quest.progress}/{quest.target}`
-		statusLabel.Parent = row
+		-- 읽기 전용 표시라 액션 버튼을 누를 수 없는 상태 칩으로 바꿔 쓴다.
+		local statusChip = card.actionButton
+		if statusChip then
+			statusChip.Active = false
+			statusChip.AutoButtonColor = false
+			statusChip.BackgroundColor3 = statusColor
+			statusChip.TextColor3 = if quest.completed then Theme.Color.TextOnAccent else Theme.Color.Text
+		end
 	end
 
 	if #currentQuests == 0 then
-		local emptyLabel = Instance.new("TextLabel")
-		emptyLabel.BackgroundTransparency = 1
-		emptyLabel.Size = UDim2.new(1, 0, 0, 60)
-		emptyLabel.Font = Enum.Font.Gotham
-		emptyLabel.TextColor3 = COLOR_TEXT_MUTED
-		emptyLabel.TextScaled = true
-		emptyLabel.Text = "게시된 퀘스트가 없어요."
-		emptyLabel.Parent = list
+		showEmpty(list)
 	end
 end
 
@@ -108,64 +92,23 @@ function QuestBoardUI.Init(playerGui: PlayerGui)
 	screenGui.IgnoreGuiInset = true
 	screenGui.Enabled = false
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.new(0.5, 0, 0.5, 0)
-	panel.Size = UDim2.new(0.85, 0, 0.78, 0)
-	panel.BackgroundColor3 = COLOR_BG
-	panel.Parent = screenGui
-
-	local panelCorner = Instance.new("UICorner")
-	panelCorner.CornerRadius = UDim.new(0, 16)
-	panelCorner.Parent = panel
-
-	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Color = COLOR_ACCENT
-	panelStroke.Thickness = 2
-	panelStroke.Parent = panel
-
-	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.BackgroundTransparency = 1
-	title.Position = UDim2.new(0, 20, 0, 8)
-	title.Size = UDim2.new(1, -60, 0, 40)
-	title.Font = Enum.Font.GothamBold
-	title.TextColor3 = COLOR_TEXT
-	title.TextScaled = true
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "퀘스트 게시판"
-	title.Parent = panel
-
-	local closeButton = Instance.new("TextButton")
-	closeButton.Name = "CloseButton"
-	closeButton.AnchorPoint = Vector2.new(1, 0)
-	closeButton.Position = UDim2.new(1, -12, 0, 12)
-	closeButton.Size = UDim2.new(0, 36, 0, 36)
-	closeButton.BackgroundColor3 = COLOR_PANEL
-	closeButton.TextColor3 = COLOR_TEXT
-	closeButton.Font = Enum.Font.GothamBold
-	closeButton.TextScaled = true
-	closeButton.Text = "X"
-	closeButton.Parent = panel
-
-	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(1, 0)
-	closeCorner.Parent = closeButton
-
-	closeButton.Activated:Connect(function()
-		QuestBoardUI.Close()
-	end)
+	local panel = PanelFrame.new({
+		parent = screenGui,
+		title = "퀘스트 게시판",
+		onClose = function()
+			QuestBoardUI.Close()
+		end,
+	})
 
 	local scroller = Instance.new("ScrollingFrame")
 	scroller.Name = "List"
 	scroller.BackgroundTransparency = 1
-	scroller.Position = UDim2.new(0, 20, 0, 60)
-	scroller.Size = UDim2.new(1, -40, 1, -80)
+	scroller.Size = UDim2.new(1, 0, 1, 0)
 	scroller.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroller.ScrollBarThickness = 6
-	scroller.Parent = panel
+	scroller.ScrollBarImageColor3 = Theme.Color.Accent
+	scroller.Parent = panel.body
 
 	local listLayout = Instance.new("UIListLayout")
 	listLayout.Padding = UDim.new(0, 10)

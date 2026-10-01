@@ -1,14 +1,12 @@
 --!strict
--- 화면 하단 알림 토스트. 갈색 톤, 모바일 대응(Scale 기반 크기).
+-- 화면 하단 알림 토스트. 공통 Theme 색상을 쓴다(모바일 Scale 기반 크기는 그대로).
 
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Theme = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("UI"):WaitForChild("Theme"))
 
 local Toast = {}
-
-local COLOR_BG = Color3.fromRGB(59, 42, 28) -- 짙은 갈색
-local COLOR_BG_ACCENT = Color3.fromRGB(122, 84, 46) -- 발견 알림용 강조 갈색
-local COLOR_TEXT = Color3.fromRGB(250, 240, 224) -- 크림색 텍스트
-local COLOR_STROKE = Color3.fromRGB(196, 160, 112)
 
 local SHOW_DURATION = 2.4
 local FADE_DURATION = 0.35
@@ -52,18 +50,18 @@ function Toast.Show(text: string, accent: boolean?)
 	local card = Instance.new("Frame")
 	card.Name = "Toast"
 	card.AutomaticSize = Enum.AutomaticSize.XY
-	card.BackgroundColor3 = accent and COLOR_BG_ACCENT or COLOR_BG
+	card.BackgroundColor3 = if accent then Theme.Color.AccentWarm else Theme.Color.Panel
 	card.BackgroundTransparency = 1
 	card.Size = UDim2.new(0, 0, 0, 0)
 	card.Parent = container
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 14)
+	corner.CornerRadius = Theme.Corner.Card
 	corner.Parent = card
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = COLOR_STROKE
-	stroke.Thickness = 1.5
+	stroke.Color = Theme.Color.Border
+	stroke.Thickness = Theme.Stroke.Card
 	stroke.Transparency = 1
 	stroke.Parent = card
 
@@ -78,8 +76,8 @@ function Toast.Show(text: string, accent: boolean?)
 	label.Name = "Text"
 	label.BackgroundTransparency = 1
 	label.AutomaticSize = Enum.AutomaticSize.XY
-	label.Font = Enum.Font.GothamMedium
-	label.TextColor3 = COLOR_TEXT
+	label.Font = Theme.Font.Body
+	label.TextColor3 = if accent then Theme.Color.TextOnAccent else Theme.Color.Text
 	label.TextTransparency = 1
 	label.TextSize = 20
 	label.Text = text

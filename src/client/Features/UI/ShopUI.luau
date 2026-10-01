@@ -2,6 +2,9 @@
 -- 상점 창. ProximityPrompt로 상점을 열면 뜬다. 구매/판매 두 탭.
 -- 실제 서버 호출과 성공/실패 처리는 Main.client.luau가 콜백으로 넘겨준 함수가 담당한다 —
 -- 이 모듈은 오직 화면을 그리고 클릭을 전달하는 역할만 한다.
+--
+-- 공통 디자인 틀(Theme/Components)로 조립한다 - 데이터 흐름(Init/Open/Close/IsOpen/
+-- SetInventory/SetCurrency/MarkOwned)은 전과 동일하고 겉모습만 바뀌었다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -9,21 +12,19 @@ local ItemDatabase = require(ReplicatedStorage:WaitForChild("Features"):WaitForC
 local ShopCatalog = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("ShopCatalog"))
 local Types = require(ReplicatedStorage:WaitForChild("Features"):WaitForChild("Types"))
 
+local UIFolder = ReplicatedStorage:WaitForChild("Features"):WaitForChild("UI")
+local Theme = require(UIFolder:WaitForChild("Theme"))
+local Components = UIFolder:WaitForChild("Components")
+local PanelFrame = require(Components:WaitForChild("PanelFrame"))
+local TabButton = require(Components:WaitForChild("TabButton"))
+local ItemCard = require(Components:WaitForChild("ItemCard"))
+
 local ShopUI = {}
 
 export type Callbacks = {
 	OnPurchase: (shopId: string, listingId: string) -> (),
 	OnSell: (itemId: string, quantity: number) -> (),
 }
-
-local COLOR_BG = Color3.fromRGB(45, 32, 22)
-local COLOR_PANEL = Color3.fromRGB(63, 45, 30)
-local COLOR_CARD = Color3.fromRGB(77, 56, 38)
-local COLOR_TEXT = Color3.fromRGB(248, 238, 220)
-local COLOR_TEXT_MUTED = Color3.fromRGB(178, 156, 130)
-local COLOR_ACCENT = Color3.fromRGB(196, 160, 112)
-local COLOR_BUTTON = Color3.fromRGB(150, 108, 63)
-local COLOR_BUTTON_DISABLED = Color3.fromRGB(70, 60, 50)
 
 local RARITY_LABEL: { [Types.Rarity]: string } = {
 	Common = "일반",
@@ -33,12 +34,12 @@ local RARITY_LABEL: { [Types.Rarity]: string } = {
 }
 
 local screenGuiRef: ScreenGui? = nil
-local panelRef: Frame? = nil
+local titleLabelRef: TextLabel? = nil
 local greetingLabel: TextLabel? = nil
 local currencyLabel: TextLabel? = nil
 local listFrame: ScrollingFrame? = nil
-local buyTabButton: TextButton? = nil
-local sellTabButton: TextButton? = nil
+local buyTab: TabButton.Tab? = nil
+local sellTab: TabButton.Tab? = nil
 
 local callbacksRef: Callbacks? = nil
 local currentPayload: Types.OpenShopPayload? = nil
@@ -46,6 +47,14 @@ local inventoryCache: { [string]: number } = {}
 local currencyAmount = 0
 local currentTab: "Buy" | "Sell" = "Buy"
 local isOpen = false
+
+local function firstGlyph(text: string): string
+	local stop = utf8.offset(text, 2)
+	if not stop then
+		return text
+	end
+	return string.sub(text, 1, stop - 1)
+end
 
 local function clearList()
 	local list = listFrame
@@ -60,79 +69,24 @@ local function clearList()
 end
 
 local function setActiveTabVisual()
-	local buyButton = buyTabButton
-	local sellButton = sellTabButton
-	if not buyButton or not sellButton then
-		return
+	if buyTab then
+		buyTab.setSelected(currentTab == "Buy")
 	end
-	if currentTab == "Buy" then
-		buyButton.BackgroundColor3 = COLOR_ACCENT
-		buyButton.TextColor3 = COLOR_BG
-		sellButton.BackgroundColor3 = COLOR_PANEL
-		sellButton.TextColor3 = COLOR_TEXT
-	else
-		sellButton.BackgroundColor3 = COLOR_ACCENT
-		sellButton.TextColor3 = COLOR_BG
-		buyButton.BackgroundColor3 = COLOR_PANEL
-		buyButton.TextColor3 = COLOR_TEXT
+	if sellTab then
+		sellTab.setSelected(currentTab == "Sell")
 	end
 end
 
-local function buildRow(parent: Instance): (Frame, TextButton)
-	local row = Instance.new("Frame")
-	row.BackgroundColor3 = COLOR_CARD
-	row.Size = UDim2.new(1, 0, 0, 76)
-	row.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
-	corner.Parent = row
-
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 14)
-	padding.PaddingRight = UDim.new(0, 14)
-	padding.PaddingTop = UDim.new(0, 8)
-	padding.PaddingBottom = UDim.new(0, 8)
-	padding.Parent = row
-
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Name = "Name"
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Size = UDim2.new(0.62, 0, 0.5, 0)
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextColor3 = COLOR_TEXT
-	nameLabel.TextScaled = true
-	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-	nameLabel.Parent = row
-
-	local descLabel = Instance.new("TextLabel")
-	descLabel.Name = "Description"
-	descLabel.BackgroundTransparency = 1
-	descLabel.Position = UDim2.new(0, 0, 0.5, 0)
-	descLabel.Size = UDim2.new(0.62, 0, 0.5, 0)
-	descLabel.Font = Enum.Font.Gotham
-	descLabel.TextColor3 = COLOR_TEXT_MUTED
-	descLabel.TextScaled = true
-	descLabel.TextXAlignment = Enum.TextXAlignment.Left
-	descLabel.TextWrapped = true
-	descLabel.Parent = row
-
-	local button = Instance.new("TextButton")
-	button.Name = "ActionButton"
-	button.AnchorPoint = Vector2.new(1, 0.5)
-	button.Position = UDim2.new(1, 0, 0.5, 0)
-	button.Size = UDim2.new(0.32, 0, 0.7, 0)
-	button.BackgroundColor3 = COLOR_BUTTON
-	button.TextColor3 = COLOR_TEXT
-	button.Font = Enum.Font.GothamBold
-	button.TextScaled = true
-	button.Parent = row
-
-	local buttonCorner = Instance.new("UICorner")
-	buttonCorner.CornerRadius = UDim.new(0, 8)
-	buttonCorner.Parent = button
-
-	return row, button
+local function showEmpty(parent: Instance, text: string)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 0, 60)
+	label.Font = Theme.Font.BodyLight
+	label.TextColor3 = Theme.Color.TextMuted
+	label.TextScaled = true
+	label.TextWrapped = true
+	label.Text = text
+	label.Parent = parent
 end
 
 local function renderBuyTab()
@@ -144,39 +98,43 @@ local function renderBuyTab()
 	end
 
 	if #payload.listings == 0 then
-		local emptyLabel = Instance.new("TextLabel")
-		emptyLabel.BackgroundTransparency = 1
-		emptyLabel.Size = UDim2.new(1, 0, 0, 60)
-		emptyLabel.Font = Enum.Font.Gotham
-		emptyLabel.TextColor3 = COLOR_TEXT_MUTED
-		emptyLabel.TextScaled = true
-		emptyLabel.Text = "이 상점은 판매만 받아요 — 팔 물건이 있으면 판매 탭을 열어보세요."
-		emptyLabel.Parent = list
+		showEmpty(list, "이 상점은 판매만 받아요 — 팔 물건이 있으면 판매 탭을 열어보세요.")
 		return
 	end
 
-	for _, listing in payload.listings do
-		local row, button = buildRow(list)
-		local nameLabel = row:FindFirstChild("Name") :: TextLabel
-		local descLabel = row:FindFirstChild("Description") :: TextLabel
-		nameLabel.Text = `{listing.displayName} · {listing.price} 도토리`
-		descLabel.Text = listing.description
-
+	for order, listing in payload.listings do
+		local actionText: string
+		local enabled: boolean
 		if listing.alreadyOwned then
-			button.Text = "보유 중"
-			button.BackgroundColor3 = COLOR_BUTTON_DISABLED
-			button.AutoButtonColor = false
+			actionText, enabled = "보유 중", false
 		else
 			local affordable = currencyAmount >= listing.price
-			button.Text = affordable and "구매" or "도토리 부족"
-			button.BackgroundColor3 = affordable and COLOR_BUTTON or COLOR_BUTTON_DISABLED
-			button.AutoButtonColor = affordable
-			if affordable then
+			actionText = if affordable then "구매" else "도토리 부족"
+			enabled = affordable
+		end
+
+		local card = ItemCard.new({
+			parent = list,
+			layoutOrder = order,
+			title = `{listing.displayName} · {listing.price} 도토리`,
+			subText = listing.description,
+			iconText = firstGlyph(listing.displayName),
+			actionText = actionText,
+			height = 80,
+		})
+
+		local button = card.actionButton
+		if button then
+			if enabled then
 				button.Activated:Connect(function()
 					if callbacksRef then
 						callbacksRef.OnPurchase(payload.shopId, listing.id)
 					end
 				end)
+			else
+				button.AutoButtonColor = false
+				button.BackgroundColor3 = Theme.Color.Locked
+				button.TextColor3 = Theme.Color.LockedText
 			end
 		end
 	end
@@ -189,7 +147,7 @@ local function renderSellTab()
 		return
 	end
 
-	local rows = 0
+	local order = 0
 	for itemId, count in inventoryCache do
 		if count <= 0 then
 			continue
@@ -199,31 +157,31 @@ local function renderSellTab()
 			continue
 		end
 
-		rows += 1
+		order += 1
 		local unitPrice = ShopCatalog.SellPriceFor(def.rarity)
-		local row, button = buildRow(list)
-		local nameLabel = row:FindFirstChild("Name") :: TextLabel
-		local descLabel = row:FindFirstChild("Description") :: TextLabel
-		nameLabel.Text = `{def.displayName} ({count}개 보유)`
-		descLabel.Text = `{RARITY_LABEL[def.rarity]} · 개당 {unitPrice} 도토리`
+		local card = ItemCard.new({
+			parent = list,
+			layoutOrder = order,
+			title = `{def.displayName} ({count}개 보유)`,
+			subText = `{RARITY_LABEL[def.rarity]} · 개당 {unitPrice} 도토리`,
+			iconColor = Theme.Rarity[def.rarity],
+			iconText = firstGlyph(def.displayName),
+			actionText = "1개 팔기",
+			height = 80,
+		})
 
-		button.Text = "1개 팔기"
-		button.Activated:Connect(function()
-			if callbacksRef then
-				callbacksRef.OnSell(itemId, 1)
-			end
-		end)
+		local button = card.actionButton
+		if button then
+			button.Activated:Connect(function()
+				if callbacksRef then
+					callbacksRef.OnSell(itemId, 1)
+				end
+			end)
+		end
 	end
 
-	if rows == 0 then
-		local emptyLabel = Instance.new("TextLabel")
-		emptyLabel.BackgroundTransparency = 1
-		emptyLabel.Size = UDim2.new(1, 0, 0, 60)
-		emptyLabel.Font = Enum.Font.Gotham
-		emptyLabel.TextColor3 = COLOR_TEXT_MUTED
-		emptyLabel.TextScaled = true
-		emptyLabel.Text = "팔 수 있는 물건이 아직 없어요. 숲에서 버섯이나 꽃을 모아 와 보세요!"
-		emptyLabel.Parent = list
+	if order == 0 then
+		showEmpty(list, "팔 수 있는 물건이 아직 없어요. 숲에서 버섯이나 꽃을 모아 와 보세요!")
 	end
 end
 
@@ -253,83 +211,42 @@ function ShopUI.Init(playerGui: PlayerGui, callbacks: Callbacks)
 	screenGui.IgnoreGuiInset = true
 	screenGui.Enabled = false
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.new(0.5, 0, 0.5, 0)
-	panel.Size = UDim2.new(0.85, 0, 0.78, 0)
-	panel.BackgroundColor3 = COLOR_BG
-	panel.Parent = screenGui
-
-	local panelCorner = Instance.new("UICorner")
-	panelCorner.CornerRadius = UDim.new(0, 16)
-	panelCorner.Parent = panel
-
-	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Color = COLOR_ACCENT
-	panelStroke.Thickness = 2
-	panelStroke.Parent = panel
-
-	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.BackgroundTransparency = 1
-	title.Position = UDim2.new(0, 20, 0, 8)
-	title.Size = UDim2.new(1, -60, 0, 32)
-	title.Font = Enum.Font.GothamBold
-	title.TextColor3 = COLOR_TEXT
-	title.TextScaled = true
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "상점"
-	title.Parent = panel
+	local panel = PanelFrame.new({
+		parent = screenGui,
+		title = "상점",
+		onClose = function()
+			ShopUI.Close()
+		end,
+	})
+	titleLabelRef = panel.titleLabel
 
 	local greeting = Instance.new("TextLabel")
 	greeting.Name = "Greeting"
 	greeting.BackgroundTransparency = 1
-	greeting.Position = UDim2.new(0, 20, 0, 40)
-	greeting.Size = UDim2.new(1, -60, 0, 26)
-	greeting.Font = Enum.Font.Gotham
-	greeting.TextColor3 = COLOR_TEXT_MUTED
+	greeting.Size = UDim2.new(1, 0, 0, 24)
+	greeting.Font = Theme.Font.BodyLight
+	greeting.TextColor3 = Theme.Color.TextMuted
 	greeting.TextScaled = true
 	greeting.TextXAlignment = Enum.TextXAlignment.Left
-	greeting.Parent = panel
+	greeting.Parent = panel.body
 
 	local currency = Instance.new("TextLabel")
 	currency.Name = "Currency"
 	currency.BackgroundTransparency = 1
-	currency.Position = UDim2.new(0, 20, 0, 66)
-	currency.Size = UDim2.new(1, -60, 0, 22)
-	currency.Font = Enum.Font.GothamMedium
-	currency.TextColor3 = COLOR_ACCENT
+	currency.Position = UDim2.new(0, 0, 0, 26)
+	currency.Size = UDim2.new(1, 0, 0, 22)
+	currency.Font = Theme.Font.Heading
+	currency.TextColor3 = Theme.Color.Accent
 	currency.TextScaled = true
 	currency.TextXAlignment = Enum.TextXAlignment.Left
-	currency.Parent = panel
-
-	local closeButton = Instance.new("TextButton")
-	closeButton.Name = "CloseButton"
-	closeButton.AnchorPoint = Vector2.new(1, 0)
-	closeButton.Position = UDim2.new(1, -12, 0, 12)
-	closeButton.Size = UDim2.new(0, 36, 0, 36)
-	closeButton.BackgroundColor3 = COLOR_PANEL
-	closeButton.TextColor3 = COLOR_TEXT
-	closeButton.Font = Enum.Font.GothamBold
-	closeButton.TextScaled = true
-	closeButton.Text = "X"
-	closeButton.Parent = panel
-
-	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(1, 0)
-	closeCorner.Parent = closeButton
-
-	closeButton.Activated:Connect(function()
-		ShopUI.Close()
-	end)
+	currency.Parent = panel.body
 
 	local tabBar = Instance.new("Frame")
 	tabBar.Name = "TabBar"
 	tabBar.BackgroundTransparency = 1
-	tabBar.Position = UDim2.new(0, 20, 0, 96)
-	tabBar.Size = UDim2.new(1, -40, 0, 40)
-	tabBar.Parent = panel
+	tabBar.Position = UDim2.new(0, 0, 0, 56)
+	tabBar.Size = UDim2.new(1, 0, 0, 44)
+	tabBar.Parent = panel.body
 
 	local tabLayout = Instance.new("UIListLayout")
 	tabLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -337,60 +254,37 @@ function ShopUI.Init(playerGui: PlayerGui, callbacks: Callbacks)
 	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tabLayout.Parent = tabBar
 
-	local buyButton = Instance.new("TextButton")
-	buyButton.Name = "BuyTab"
-	buyButton.Size = UDim2.new(0, 100, 1, 0)
-	buyButton.BackgroundColor3 = COLOR_PANEL
-	buyButton.TextColor3 = COLOR_TEXT
-	buyButton.Font = Enum.Font.GothamMedium
-	buyButton.TextScaled = true
-	buyButton.Text = "구매"
-	buyButton.Parent = tabBar
-	local buyCorner = Instance.new("UICorner")
-	buyCorner.CornerRadius = UDim.new(0, 10)
-	buyCorner.Parent = buyButton
-	buyButton.Activated:Connect(function()
+	local buy = TabButton.new({ parent = tabBar, text = "구매", layoutOrder = 1, width = 100 })
+	buy.button.Activated:Connect(function()
 		selectTab("Buy")
 	end)
+	buyTab = buy
 
-	local sellButton = Instance.new("TextButton")
-	sellButton.Name = "SellTab"
-	sellButton.LayoutOrder = 2
-	sellButton.Size = UDim2.new(0, 100, 1, 0)
-	sellButton.BackgroundColor3 = COLOR_PANEL
-	sellButton.TextColor3 = COLOR_TEXT
-	sellButton.Font = Enum.Font.GothamMedium
-	sellButton.TextScaled = true
-	sellButton.Text = "판매"
-	sellButton.Parent = tabBar
-	local sellCorner = Instance.new("UICorner")
-	sellCorner.CornerRadius = UDim.new(0, 10)
-	sellCorner.Parent = sellButton
-	sellButton.Activated:Connect(function()
+	local sell = TabButton.new({ parent = tabBar, text = "판매", layoutOrder = 2, width = 100 })
+	sell.button.Activated:Connect(function()
 		selectTab("Sell")
 	end)
+	sellTab = sell
 
 	local scroller = Instance.new("ScrollingFrame")
 	scroller.Name = "List"
 	scroller.BackgroundTransparency = 1
-	scroller.Position = UDim2.new(0, 20, 0, 146)
-	scroller.Size = UDim2.new(1, -40, 1, -166)
+	scroller.Position = UDim2.new(0, 0, 0, 108)
+	scroller.Size = UDim2.new(1, 0, 1, -108)
 	scroller.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroller.ScrollBarThickness = 6
-	scroller.Parent = panel
+	scroller.ScrollBarImageColor3 = Theme.Color.Accent
+	scroller.Parent = panel.body
 
 	local listLayout = Instance.new("UIListLayout")
 	listLayout.Padding = UDim.new(0, 10)
 	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	listLayout.Parent = scroller
 
-	panelRef = panel
 	greetingLabel = greeting
 	currencyLabel = currency
 	listFrame = scroller
-	buyTabButton = buyButton
-	sellTabButton = sellButton
 
 	screenGuiRef = screenGui
 	screenGui.Parent = playerGui
@@ -401,12 +295,8 @@ function ShopUI.Open(payload: Types.OpenShopPayload)
 	currentTab = "Buy"
 	isOpen = true
 
-	local panel = panelRef
-	if panel then
-		local title = panel:FindFirstChild("Title") :: TextLabel?
-		if title then
-			title.Text = payload.shopDisplayName
-		end
+	if titleLabelRef then
+		titleLabelRef.Text = payload.shopDisplayName
 	end
 	if greetingLabel then
 		greetingLabel.Text = payload.greeting
